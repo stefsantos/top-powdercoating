@@ -8,7 +8,13 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ClientDashboard from "./pages/client/Dashboard";
+import Orders from "./pages/client/Orders";
+import CreateOrder from "./pages/client/CreateOrder";
+import OrderDetail from "./pages/client/OrderDetail";
+import OrderHistory from "./pages/client/OrderHistory";
 import AdminDashboard from "./pages/admin/Dashboard";
+import OrderManagement from "./pages/admin/OrderManagement";
+import ClientManagement from "./pages/admin/ClientManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,16 +47,38 @@ const App = () => {
               } 
             />
             <Route 
-              path="/client/*" 
+              path="/client/orders" 
               element={
                 <>
                   <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <div className="min-h-screen bg-background pt-24 px-4">
-                    <div className="max-w-7xl mx-auto text-center py-12">
-                      <h2 className="text-2xl font-bold text-foreground mb-2">Coming Soon</h2>
-                      <p className="text-muted-foreground">This feature is under development</p>
-                    </div>
-                  </div>
+                  <Orders />
+                </>
+              } 
+            />
+            <Route 
+              path="/client/orders/new" 
+              element={
+                <>
+                  <Navigation isAdmin={false} onLogout={handleLogout} />
+                  <CreateOrder />
+                </>
+              } 
+            />
+            <Route 
+              path="/client/orders/history" 
+              element={
+                <>
+                  <Navigation isAdmin={false} onLogout={handleLogout} />
+                  <OrderHistory />
+                </>
+              } 
+            />
+            <Route 
+              path="/client/orders/:id" 
+              element={
+                <>
+                  <Navigation isAdmin={false} onLogout={handleLogout} />
+                  <OrderDetail />
                 </>
               } 
             />
@@ -66,16 +94,20 @@ const App = () => {
               } 
             />
             <Route 
-              path="/admin/*" 
+              path="/admin/orders" 
               element={
                 <>
                   <Navigation isAdmin={true} onLogout={handleLogout} />
-                  <div className="min-h-screen bg-background pt-24 px-4">
-                    <div className="max-w-7xl mx-auto text-center py-12">
-                      <h2 className="text-2xl font-bold text-foreground mb-2">Coming Soon</h2>
-                      <p className="text-muted-foreground">This feature is under development</p>
-                    </div>
-                  </div>
+                  <OrderManagement />
+                </>
+              } 
+            />
+            <Route 
+              path="/admin/clients" 
+              element={
+                <>
+                  <Navigation isAdmin={true} onLogout={handleLogout} />
+                  <ClientManagement />
                 </>
               } 
             />
