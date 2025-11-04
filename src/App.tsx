@@ -56,7 +56,7 @@ const App = () => {
               } 
             />
             <Route 
-              path="/client/orders/new" 
+              path="/client/create-order" 
               element={
                 <>
                   <Navigation isAdmin={false} onLogout={handleLogout} />

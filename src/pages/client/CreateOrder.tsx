@@ -61,12 +61,35 @@ export default function CreateOrder() {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
+    
+    // Validate file size (max 10MB per file)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const invalidFiles = files.filter(file => file.size > maxSize);
+    
+    if (invalidFiles.length > 0) {
+      toast.error('Some files are too large', {
+        description: 'Maximum file size is 10MB per file'
+      });
+      return;
+    }
+
+    // Validate file types
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/dwg'];
+    const invalidTypes = files.filter(file => !allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.dwg'));
+    
+    if (invalidTypes.length > 0) {
+      toast.error('Invalid file type', {
+        description: 'Only PDF, JPG, PNG, and DWG files are allowed'
+      });
+      return;
+    }
+
     const newFiles = files.map(file => ({
       name: file.name,
       size: file.size
     }));
     setUploadedFiles([...uploadedFiles, ...newFiles]);
-    toast.success(`${files.length} file(s) uploaded`);
+    toast.success(`${files.length} file(s) uploaded successfully`);
   };
 
   const removeFile = (index: number) => {
@@ -74,15 +97,79 @@ export default function CreateOrder() {
   };
 
   const handleSubmitOrder = () => {
-    if (!projectName || !itemDescription || !quantity) {
-      toast.error('Please fill in all required fields');
+    // Validate customization
+    if (!finish || !texture || !color) {
+      toast.error('Please complete all customization options');
+      return;
+    }
+
+    if (customNotes && customNotes.length > 500) {
+      toast.error('Customization notes must be less than 500 characters');
+      return;
+    }
+
+    // Validate custom color if selected
+    if (color === 'custom') {
+      if (!customColor) {
+        toast.error('Please enter a custom color code');
+        return;
+      }
+      if (!/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(customColor)) {
+        toast.error('Invalid color code. Please use hex format (e.g., #FF5733)');
+        return;
+      }
+    }
+
+    // Validate order details
+    const trimmedProjectName = projectName.trim();
+    const trimmedDescription = itemDescription.trim();
+    const trimmedQuantity = quantity.trim();
+
+    if (!trimmedProjectName) {
+      toast.error('Project name is required');
+      return;
+    }
+
+    if (trimmedProjectName.length > 100) {
+      toast.error('Project name must be less than 100 characters');
+      return;
+    }
+
+    if (!trimmedDescription) {
+      toast.error('Item description is required');
+      return;
+    }
+
+    if (trimmedDescription.length < 10) {
+      toast.error('Description must be at least 10 characters');
+      return;
+    }
+
+    if (trimmedDescription.length > 1000) {
+      toast.error('Description must be less than 1000 characters');
+      return;
+    }
+
+    if (!trimmedQuantity) {
+      toast.error('Quantity is required');
+      return;
+    }
+
+    if (dimensions && dimensions.trim().length > 100) {
+      toast.error('Dimensions must be less than 100 characters');
+      return;
+    }
+
+    if (additionalNotes && additionalNotes.trim().length > 1000) {
+      toast.error('Additional notes must be less than 1000 characters');
       return;
     }
 
     const orderId = `ORD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
     
+    // Success
     toast.success('Order submitted successfully!', {
-      description: `Order ${orderId} has been created`
+      description: `Order ${orderId} has been created and is now being processed`
     });
     
     setTimeout(() => {
@@ -228,7 +315,11 @@ export default function CreateOrder() {
                       value={customNotes}
                       onChange={(e) => setCustomNotes(e.target.value)}
                       rows={3}
+                      maxLength={500}
                     />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {customNotes.length}/500 characters
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -306,7 +397,11 @@ export default function CreateOrder() {
                 placeholder="e.g., Office Building Window Frames"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
+                maxLength={100}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {projectName.length}/100 characters
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -317,7 +412,11 @@ export default function CreateOrder() {
                 value={itemDescription}
                 onChange={(e) => setItemDescription(e.target.value)}
                 rows={4}
+                maxLength={1000}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {itemDescription.length}/1000 characters (minimum 10)
+              </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -350,7 +449,11 @@ export default function CreateOrder() {
                 value={additionalNotes}
                 onChange={(e) => setAdditionalNotes(e.target.value)}
                 rows={3}
+                maxLength={1000}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {additionalNotes.length}/1000 characters
+              </p>
             </div>
 
             <Separator />

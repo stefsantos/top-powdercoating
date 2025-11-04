@@ -97,7 +97,7 @@ export default function Orders() {
             <h1 className="text-4xl font-bold text-foreground mb-2">My Orders</h1>
             <p className="text-muted-foreground">Track your powder coating orders</p>
           </div>
-          <Link to="/client/orders/new">
+          <Link to="/client/create-order">
             <Button size="lg" className="gap-2">
               <Package className="h-5 w-5" />
               Create New Order
@@ -121,7 +121,7 @@ export default function Orders() {
                 <CardContent className="py-12 text-center">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No orders in progress</p>
-                  <Link to="/client/orders/new">
+                  <Link to="/client/create-order">
                     <Button className="mt-4">Create Your First Order</Button>
                   </Link>
                 </CardContent>
