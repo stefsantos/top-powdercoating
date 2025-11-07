@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, User, Building, Phone, Mail, Lock, ArrowLeft, CheckCircle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -52,6 +53,15 @@ export default function Signup() {
     return true;
   };
 
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/client/dashboard');
+      }
+    });
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -60,12 +70,41 @@ export default function Signup() {
 
     setLoading(true);
 
-    // Mock API call
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/client/dashboard`,
+          data: {
+            full_name: formData.fullName,
+            company: formData.company,
+            phone: formData.phone,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          setError('This email is already registered. Please sign in instead.');
+        } else if (error.message.includes('Password')) {
+          setError('Password must be at least 6 characters long');
+        } else {
+          setError(error.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        toast.success('Account created successfully! Please check your email to confirm your account.');
+        // Redirect to login or dashboard depending on email confirmation settings
+        navigate('/login');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
       setLoading(false);
-      toast.success('Account created successfully! Welcome to Top Powdercoating Corp.');
-      navigate('/client/dashboard');
-    }, 1500);
+    }
   };
 
   return (

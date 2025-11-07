@@ -1,9 +1,12 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
+import { supabase } from "@/integrations/supabase/client";
+import { Session } from "@supabase/supabase-js";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -19,102 +22,129 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  const handleLogout = () => {
-    // Handle logout logic here
+const AppContent = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    navigate('/');
   };
 
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      
+      {/* Client routes */}
+      <Route 
+        path="/client/dashboard" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <ClientDashboard />
+          </>
+        } 
+      />
+      <Route 
+        path="/client/orders" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <Orders />
+          </>
+        } 
+      />
+      <Route 
+        path="/client/create-order" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <CreateOrder />
+          </>
+        } 
+      />
+      <Route 
+        path="/client/orders/history" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <OrderHistory />
+          </>
+        } 
+      />
+      <Route 
+        path="/client/orders/:id" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <OrderDetail />
+          </>
+        } 
+      />
+      
+      {/* Admin routes */}
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <AdminDashboard />
+          </>
+        } 
+      />
+      <Route 
+        path="/admin/orders" 
+        element={
+          <>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <OrderManagement />
+          </>
+        } 
+      />
+      <Route 
+        path="/admin/clients" 
+        element={
+          <>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <ClientManagement />
+          </>
+        } 
+      />
+      
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner position="top-right" />
         <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            
-            {/* Client routes */}
-            <Route 
-              path="/client/dashboard" 
-              element={
-                <>
-                  <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <ClientDashboard />
-                </>
-              } 
-            />
-            <Route 
-              path="/client/orders" 
-              element={
-                <>
-                  <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <Orders />
-                </>
-              } 
-            />
-            <Route 
-              path="/client/create-order" 
-              element={
-                <>
-                  <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <CreateOrder />
-                </>
-              } 
-            />
-            <Route 
-              path="/client/orders/history" 
-              element={
-                <>
-                  <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <OrderHistory />
-                </>
-              } 
-            />
-            <Route 
-              path="/client/orders/:id" 
-              element={
-                <>
-                  <Navigation isAdmin={false} onLogout={handleLogout} />
-                  <OrderDetail />
-                </>
-              } 
-            />
-            
-            {/* Admin routes */}
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                <>
-                  <Navigation isAdmin={true} onLogout={handleLogout} />
-                  <AdminDashboard />
-                </>
-              } 
-            />
-            <Route 
-              path="/admin/orders" 
-              element={
-                <>
-                  <Navigation isAdmin={true} onLogout={handleLogout} />
-                  <OrderManagement />
-                </>
-              } 
-            />
-            <Route 
-              path="/admin/clients" 
-              element={
-                <>
-                  <Navigation isAdmin={true} onLogout={handleLogout} />
-                  <ClientManagement />
-                </>
-              } 
-            />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppContent />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

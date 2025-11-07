@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, LogOut, Menu, X, Package, FileText, Clock, Users, BarChart, Zap } from 'lucide-react';
+import { Bell, LogOut, Menu, X, Package, FileText, Clock, Users, BarChart } from 'lucide-react';
+import logo from '@/assets/logo.jpg';
 
 interface NavigationProps {
   isAdmin?: boolean;
@@ -52,9 +53,7 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate(isAdmin ? '/admin/dashboard' : '/client/dashboard')}>
-            <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src={logo} alt="Top Powdercoating Logo" className="h-10 w-10 object-contain rounded-lg" />
             <span className="text-xl font-bold text-foreground hidden md:block">
               Top Powdercoating
             </span>

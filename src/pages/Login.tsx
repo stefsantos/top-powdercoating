@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Lock, Mail, ArrowLeft, Shield, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,6 +20,15 @@ export default function Login() {
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate(isAdminMode ? '/admin/dashboard' : '/client/dashboard');
+      }
+    });
+  }, [navigate, isAdminMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +42,32 @@ export default function Login() {
       return;
     }
 
-    // Mock authentication
-    setTimeout(() => {
-      setLoading(false);
-      if (isAdminMode) {
-        toast.success('Welcome to the admin dashboard!');
-        navigate('/admin/dashboard');
-      } else {
-        toast.success('Welcome back! You have successfully logged in.');
-        navigate('/client/dashboard');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password');
+        } else if (error.message.includes('Email not confirmed')) {
+          setError('Please confirm your email address before logging in');
+        } else {
+          setError(error.message);
+        }
+        setLoading(false);
+        return;
       }
-    }, 1000);
+
+      if (data.user) {
+        toast.success('Welcome back! You have successfully logged in.');
+        navigate(isAdminMode ? '/admin/dashboard' : '/client/dashboard');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
