@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Shield, Palette, Users, Award, CheckCircle, Zap, Clock } from 'lucide-react';
+import logo from '@/assets/logo.jpg';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -45,11 +46,8 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <Zap className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">Top Powdercoating Corp</span>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Top Powdercoating Corp" className="h-12 w-auto" />
             </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" onClick={() => navigate('/login')}>
@@ -182,11 +180,8 @@ export default function Home() {
       <footer className="py-8 px-4 border-t border-border bg-card">
         <div className="container mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-foreground">Top Powdercoating Corp</span>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Top Powdercoating Corp" className="h-10 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground">
               © 2025 Top Powdercoating Corp. All rights reserved.
