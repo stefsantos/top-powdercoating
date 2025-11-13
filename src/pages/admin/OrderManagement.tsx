@@ -1,350 +1,164 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog';
-import { 
-  Search, 
-  Eye, 
-  Edit,
-  CheckCircle,
-  Clock,
-  AlertTriangle
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Eye, Edit, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Order {
   id: string;
-  orderId: string;
-  clientName: string;
-  clientCompany: string;
+  order_number: string;
+  status: string;
+  priority: string;
+  submitted_date: string;
+  estimated_completion: string | null;
   description: string;
-  status: 'queued' | 'sand-blasting' | 'coating' | 'curing' | 'quality-check' | 'completed' | 'delayed';
-  priority: 'low' | 'medium' | 'high';
-  submittedDate: string;
-  estimatedCompletion: string;
-  progress: number;
+  profiles?: { full_name: string };
 }
 
-const mockOrders: Order[] = [
-  {
-    id: '1',
-    orderId: 'ORD-2025-001',
-    clientName: 'John Doe',
-    clientCompany: 'ABC Manufacturing',
-    description: 'Aluminum Window Frames - Matte Black',
-    status: 'coating',
-    priority: 'high',
-    submittedDate: '2025-01-20',
-    estimatedCompletion: '2025-01-25',
-    progress: 60
-  },
-  {
-    id: '2',
-    orderId: 'ORD-2025-002',
-    clientName: 'Jane Smith',
-    clientCompany: 'XYZ Industries',
-    description: 'Steel Gates - Glossy White',
-    status: 'sand-blasting',
-    priority: 'medium',
-    submittedDate: '2025-01-22',
-    estimatedCompletion: '2025-01-28',
-    progress: 30
-  },
-  {
-    id: '3',
-    orderId: 'ORD-2025-003',
-    clientName: 'Bob Johnson',
-    clientCompany: 'DEF Construction',
-    description: 'Metal Railings - Textured Gray',
-    status: 'queued',
-    priority: 'low',
-    submittedDate: '2025-01-23',
-    estimatedCompletion: '2025-01-30',
-    progress: 10
-  }
-];
-
 export default function OrderManagement() {
-  const [orders, setOrders] = useState(mockOrders);
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [newStatus, setNewStatus] = useState('');
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      'queued': 'bg-muted text-muted-foreground',
-      'sand-blasting': 'bg-accent text-accent-foreground',
-      'coating': 'bg-primary text-primary-foreground',
-      'curing': 'bg-secondary text-secondary-foreground',
-      'quality-check': 'bg-accent text-accent-foreground',
-      'completed': 'bg-primary text-primary-foreground',
-      'delayed': 'bg-destructive text-destructive-foreground'
-    };
-    return colors[status as keyof typeof colors];
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, profiles(full_name)')
+        .order('submitted_date', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getPriorityColor = (priority: string) => {
-    const colors = {
-      'low': 'bg-muted text-muted-foreground',
-      'medium': 'bg-accent text-accent-foreground',
-      'high': 'bg-destructive text-destructive-foreground'
-    };
-    return colors[priority as keyof typeof colors];
-  };
-
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) return;
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', selectedOrder.id);
 
-    setOrders(orders.map(order => 
-      order.id === selectedOrder.id 
-        ? { ...order, status: newStatus as Order['status'] }
-        : order
-    ));
-
-    toast.success('Order status updated', {
-      description: `${selectedOrder.orderId} is now ${newStatus}`
-    });
-
-    setSelectedOrder(null);
-    setNewStatus('');
+      if (error) throw error;
+      await fetchOrders();
+      toast.success('Order updated');
+      setSelectedOrder(null);
+    } catch (error) {
+      toast.error('Update failed');
+    }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.clientCompany.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         (o.profiles?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const stats = {
+    queued: orders.filter(o => o.status === 'received').length,
+    inProgress: orders.filter(o => ['in_preparation', 'coating_in_progress', 'quality_check'].includes(o.status)).length,
+    completed: orders.filter(o => o.status === 'completed').length,
+    delayed: 0
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Order Management</h1>
-          <p className="text-muted-foreground">Manage and track all client orders</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-muted rounded-lg">
-                  <Clock className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{orders.filter(o => o.status === 'queued').length}</p>
-                  <p className="text-sm text-muted-foreground">Queued</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Edit className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">
-                    {orders.filter(o => ['sand-blasting', 'coating', 'curing'].includes(o.status)).length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">In Progress</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <CheckCircle className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{orders.filter(o => o.status === 'completed').length}</p>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-destructive/10 rounded-lg">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{orders.filter(o => o.status === 'delayed').length}</p>
-                  <p className="text-sm text-muted-foreground">Delayed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Orders Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-              <CardTitle>All Orders</CardTitle>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search orders..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="queued">Queued</SelectItem>
-                    <SelectItem value="sand-blasting">Sand Blasting</SelectItem>
-                    <SelectItem value="coating">Coating</SelectItem>
-                    <SelectItem value="curing">Curing</SelectItem>
-                    <SelectItem value="quality-check">Quality Check</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="delayed">Delayed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.orderId}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{order.clientName}</p>
-                          <p className="text-xs text-muted-foreground">{order.clientCompany}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{order.description}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(order.status)}>
-                          {order.status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityColor(order.priority)}>
-                          {order.priority.charAt(0).toUpperCase() + order.priority.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(order.estimatedCompletion).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedOrder(order);
-                                  setNewStatus(order.status);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Update Order Status</DialogTitle>
-                              </DialogHeader>
-                              {selectedOrder && (
-                                <div className="space-y-4 pt-4">
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Order ID</p>
-                                    <p className="font-medium">{selectedOrder.orderId}</p>
-                                  </div>
-                                  <div>
-                                    <Label htmlFor="status">New Status</Label>
-                                    <Select value={newStatus} onValueChange={setNewStatus}>
-                                      <SelectTrigger id="status">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="queued">Queued</SelectItem>
-                                        <SelectItem value="sand-blasting">Sand Blasting</SelectItem>
-                                        <SelectItem value="coating">Coating</SelectItem>
-                                        <SelectItem value="curing">Curing</SelectItem>
-                                        <SelectItem value="quality-check">Quality Check</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                        <SelectItem value="delayed">Delayed</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <Button onClick={handleUpdateStatus} className="w-full">
-                                    Update Status
-                                  </Button>
-                                </div>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto p-6 max-w-7xl">
+      <h1 className="text-4xl font-bold mb-8">Order Management</h1>
+      
+      <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <Card><CardContent className="pt-6"><Clock className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.queued}</div><p className="text-sm text-muted-foreground">Queued</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><Package className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.inProgress}</div><p className="text-sm text-muted-foreground">In Progress</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><CheckCircle2 className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.completed}</div><p className="text-sm text-muted-foreground">Completed</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><AlertCircle className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.delayed}</div><p className="text-sm text-muted-foreground">Delayed</p></CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="received">Received</SelectItem>
+                <SelectItem value="in_preparation">In Preparation</SelectItem>
+                <SelectItem value="coating_in_progress">Coating</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.map(order => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.order_number}</TableCell>
+                  <TableCell>{order.profiles?.full_name || 'N/A'}</TableCell>
+                  <TableCell className="max-w-xs truncate">{order.description}</TableCell>
+                  <TableCell><Badge>{order.status}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/client/orders/${order.id}`)}><Eye className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(order); setNewStatus(order.status); }}><Edit className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Update Status</DialogTitle></DialogHeader>
+          <Select value={newStatus} onValueChange={setNewStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="received">Received</SelectItem>
+              <SelectItem value="in_preparation">In Preparation</SelectItem>
+              <SelectItem value="coating_in_progress">Coating</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleUpdateStatus}>Update</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

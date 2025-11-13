@@ -14,6 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
+      order_customizations: {
+        Row: {
+          color: string
+          created_at: string
+          custom_notes: string | null
+          finish: Database["public"]["Enums"]["finish_type"]
+          id: string
+          order_id: string
+          texture: Database["public"]["Enums"]["texture_type"]
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          custom_notes?: string | null
+          finish: Database["public"]["Enums"]["finish_type"]
+          id?: string
+          order_id: string
+          texture: Database["public"]["Enums"]["texture_type"]
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          custom_notes?: string | null
+          finish?: Database["public"]["Enums"]["finish_type"]
+          id?: string
+          order_id?: string
+          texture?: Database["public"]["Enums"]["texture_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_customizations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number
+          file_url: string
+          id: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size: number
+          file_url: string
+          id?: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_url?: string
+          id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_files_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          additional_notes: string | null
+          completed_date: string | null
+          created_at: string
+          description: string
+          dimensions: string | null
+          estimated_completion: string | null
+          id: string
+          order_number: string
+          priority: Database["public"]["Enums"]["order_priority"]
+          project_name: string
+          quantity: number
+          status: Database["public"]["Enums"]["order_status"]
+          submitted_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          additional_notes?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description: string
+          dimensions?: string | null
+          estimated_completion?: string | null
+          id?: string
+          order_number: string
+          priority?: Database["public"]["Enums"]["order_priority"]
+          project_name: string
+          quantity: number
+          status?: Database["public"]["Enums"]["order_status"]
+          submitted_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          additional_notes?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description?: string
+          dimensions?: string | null
+          estimated_completion?: string | null
+          id?: string
+          order_number?: string
+          priority?: Database["public"]["Enums"]["order_priority"]
+          project_name?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          submitted_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company: string | null
@@ -67,6 +229,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_order_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -77,6 +240,17 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "client"
+      finish_type: "matte" | "glossy" | "satin"
+      order_priority: "low" | "medium" | "high" | "urgent"
+      order_status:
+        | "received"
+        | "in_preparation"
+        | "coating_in_progress"
+        | "quality_check"
+        | "ready_for_pickup"
+        | "completed"
+        | "cancelled"
+      texture_type: "smooth" | "textured" | "hammered"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -205,6 +379,18 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "client"],
+      finish_type: ["matte", "glossy", "satin"],
+      order_priority: ["low", "medium", "high", "urgent"],
+      order_status: [
+        "received",
+        "in_preparation",
+        "coating_in_progress",
+        "quality_check",
+        "ready_for_pickup",
+        "completed",
+        "cancelled",
+      ],
+      texture_type: ["smooth", "textured", "hammered"],
     },
   },
 } as const

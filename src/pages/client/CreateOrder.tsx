@@ -18,6 +18,7 @@ import {
   Sparkles,
   Grid3x3
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const finishOptions = [
   { value: 'matte', label: 'Matte', description: 'Non-reflective, smooth finish' },
@@ -58,6 +59,7 @@ export default function CreateOrder() {
   const [dimensions, setDimensions] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: number }>>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -96,7 +98,7 @@ export default function CreateOrder() {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
 
-  const handleSubmitOrder = () => {
+  const handleSubmitOrder = async () => {
     // Validate customization
     if (!finish || !texture || !color) {
       toast.error('Please complete all customization options');
@@ -155,6 +157,12 @@ export default function CreateOrder() {
       return;
     }
 
+    const quantityNum = parseInt(trimmedQuantity);
+    if (isNaN(quantityNum) || quantityNum < 1) {
+      toast.error('Quantity must be a valid number');
+      return;
+    }
+
     if (dimensions && dimensions.trim().length > 100) {
       toast.error('Dimensions must be less than 100 characters');
       return;
@@ -165,16 +173,82 @@ export default function CreateOrder() {
       return;
     }
 
-    const orderId = `ORD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-    
-    // Success
-    toast.success('Order submitted successfully!', {
-      description: `Order ${orderId} has been created and is now being processed`
-    });
-    
-    setTimeout(() => {
-      navigate('/client/orders');
-    }, 1500);
+    setIsSubmitting(true);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('You must be logged in to create an order');
+        return;
+      }
+
+      // Generate order number
+      const { data: orderNumberData, error: orderNumberError } = await supabase
+        .rpc('generate_order_number');
+      
+      if (orderNumberError) throw orderNumberError;
+
+      // Create order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          order_number: orderNumberData,
+          project_name: trimmedProjectName,
+          description: trimmedDescription,
+          quantity: quantityNum,
+          dimensions: dimensions.trim() || null,
+          additional_notes: additionalNotes.trim() || null,
+          estimated_completion: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 2 weeks from now
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create customization
+      const { error: customizationError } = await supabase
+        .from('order_customizations')
+        .insert({
+          order_id: orderData.id,
+          finish: finish as 'matte' | 'glossy' | 'satin',
+          texture: texture as 'smooth' | 'textured' | 'hammered',
+          color: color === 'custom' ? customColor : color,
+          custom_notes: customNotes.trim() || null
+        });
+
+      if (customizationError) throw customizationError;
+
+      // Store file references (in real app, would upload to storage first)
+      if (uploadedFiles.length > 0) {
+        const fileInserts = uploadedFiles.map(file => ({
+          order_id: orderData.id,
+          file_name: file.name,
+          file_size: file.size,
+          file_url: `placeholder-${file.name}` // Would be actual storage URL
+        }));
+
+        const { error: filesError } = await supabase
+          .from('order_files')
+          .insert(fileInserts);
+
+        if (filesError) throw filesError;
+      }
+
+      toast.success('Order submitted successfully!', {
+        description: `Order ${orderNumberData} has been created and is now being processed`
+      });
+      
+      setTimeout(() => {
+        navigate('/client/orders');
+      }, 1500);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error("Failed to submit order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getPreviewStyle = () => {
@@ -424,9 +498,11 @@ export default function CreateOrder() {
                 <Label htmlFor="quantity">Quantity *</Label>
                 <Input
                   id="quantity"
-                  placeholder="e.g., 12 pieces"
+                  placeholder="e.g., 12"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
+                  type="number"
+                  min="1"
                 />
               </div>
 
@@ -464,33 +540,30 @@ export default function CreateOrder() {
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
               >
-                <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-1">
-                  Click to upload or drag and drop
-                </p>
+                <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-sm font-medium mb-1">Click to upload files</p>
                 <p className="text-xs text-muted-foreground">
-                  Technical drawings, photos, or specifications
+                  PDF, JPG, PNG, or DWG files (max 10MB each)
                 </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
+                accept=".pdf,.jpg,.jpeg,.png,.dwg"
                 onChange={handleFileUpload}
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.dwg"
               />
 
               {uploadedFiles.length > 0 && (
                 <div className="space-y-2">
                   {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
-                        {file.name.endsWith('.pdf') ? (
-                          <FileText className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                        )}
+                        <FileText className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -513,32 +586,41 @@ export default function CreateOrder() {
 
             <Separator />
 
-            <div className="bg-muted p-4 rounded-lg space-y-2">
-              <h3 className="font-semibold">Selected Customization</h3>
-              <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="bg-muted p-4 rounded-lg">
+              <h4 className="font-medium mb-3">Order Summary</h4>
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Finish:</span>
-                  <span className="ml-2 font-medium">{finishOptions.find(f => f.value === finish)?.label}</span>
+                  <p className="text-muted-foreground mb-1">Finish</p>
+                  <p className="font-medium">{finishOptions.find(f => f.value === finish)?.label}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Texture:</span>
-                  <span className="ml-2 font-medium">{textureOptions.find(t => t.value === texture)?.label}</span>
+                  <p className="text-muted-foreground mb-1">Texture</p>
+                  <p className="font-medium">{textureOptions.find(t => t.value === texture)?.label}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Color:</span>
-                  <span className="ml-2 font-medium">
+                  <p className="text-muted-foreground mb-1">Color</p>
+                  <p className="font-medium">
                     {color === 'custom' ? customColor : colorOptions.find(c => c.value === color)?.label}
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep('customize')}>
-                Back
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setStep('customize')}
+                disabled={isSubmitting}
+              >
+                Back to Customization
               </Button>
-              <Button className="flex-1" onClick={handleSubmitOrder}>
-                Submit Order
+              <Button
+                className="flex-1"
+                onClick={handleSubmitOrder}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Order'}
               </Button>
             </div>
           </CardContent>
