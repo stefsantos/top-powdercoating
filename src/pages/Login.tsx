@@ -61,8 +61,30 @@ export default function Login() {
       }
 
       if (data.user) {
+        // Check user role from database
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (roleError && roleError.code !== 'PGRST116') {
+          console.error('Role check error:', roleError);
+        }
+
+        const userRole = roleData?.role || 'client';
+        const isAdmin = userRole === 'admin';
+
+        // Navigate based on actual role, not mode
+        if (isAdminMode && !isAdmin) {
+          setError('You do not have admin access');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
         toast.success('Welcome back! You have successfully logged in.');
-        navigate(isAdminMode ? '/admin/dashboard' : '/client/dashboard');
+        navigate(isAdmin ? '/admin/dashboard' : '/client/dashboard');
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
