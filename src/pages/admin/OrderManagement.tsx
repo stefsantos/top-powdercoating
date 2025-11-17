@@ -37,13 +37,27 @@ export default function OrderManagement() {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*, profiles(full_name)')
+        .select('*')
         .order('submitted_date', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (ordersError) throw ordersError;
+
+      // Fetch profiles separately
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name');
+
+      if (profilesError) throw profilesError;
+
+      // Map profiles to orders
+      const ordersWithProfiles = (ordersData || []).map(order => ({
+        ...order,
+        profiles: profilesData?.find(p => p.id === order.user_id) || { full_name: 'Unknown' }
+      }));
+
+      setOrders(ordersWithProfiles);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load orders');
@@ -55,9 +69,15 @@ export default function OrderManagement() {
   const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) return;
     try {
+      const validStatuses = ['received', 'in_preparation', 'coating_in_progress', 'quality_check', 'ready_for_pickup', 'completed', 'cancelled'];
+      if (!validStatuses.includes(newStatus)) {
+        toast.error('Invalid status');
+        return;
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update({ status: newStatus as any })
         .eq('id', selectedOrder.id);
 
       if (error) throw error;
