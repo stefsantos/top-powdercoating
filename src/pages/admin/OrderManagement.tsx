@@ -106,7 +106,7 @@ export default function OrderManagement() {
 
   return (
     <ScrollArea className="h-screen">
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-6 max-w-7xl pt-24">
       <h1 className="text-4xl font-bold mb-8">Order Management</h1>
       
       <div className="grid md:grid-cols-4 gap-4 mb-8">
