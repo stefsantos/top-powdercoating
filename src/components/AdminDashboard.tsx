@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
+import { ScrollArea } from './ui/scroll-area';
 import { 
   Package, 
   Clock, 
@@ -126,7 +127,8 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ScrollArea className="h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-start">
@@ -294,5 +296,6 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
         </div>
       </div>
     </div>
+    </ScrollArea>
   );
 }

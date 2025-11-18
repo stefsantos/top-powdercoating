@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -104,7 +105,8 @@ export default function OrderManagement() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <ScrollArea className="h-screen">
+      <div className="container mx-auto p-6 max-w-7xl">
       <h1 className="text-4xl font-bold mb-8">Order Management</h1>
       
       <div className="grid md:grid-cols-4 gap-4 mb-8">
@@ -180,5 +182,6 @@ export default function OrderManagement() {
         </DialogContent>
       </Dialog>
     </div>
+    </ScrollArea>
   );
 }
