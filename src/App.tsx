@@ -18,6 +18,7 @@ import OrderDetail from "./pages/client/OrderDetail";
 import OrderHistory from "./pages/client/OrderHistory";
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrderManagement from "./pages/admin/OrderManagement";
+import AdminOrderDetail from "./pages/admin/OrderDetail";
 import ClientManagement from "./pages/admin/ClientManagement";
 import NotFound from "./pages/NotFound";
 
@@ -132,6 +133,15 @@ const AppContent = () => {
         } 
       />
       <Route 
+        path="/admin/orders/:id" 
+        element={
+          <>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <AdminOrderDetail />
+          </>
+        } 
+      />
+      <Route
         path="/admin/clients" 
         element={
           <>
