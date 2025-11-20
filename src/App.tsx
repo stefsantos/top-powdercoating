@@ -13,6 +13,7 @@ import Signup from "./pages/Signup";
 import ClientDashboard from "./pages/client/Dashboard";
 import Orders from "./pages/client/Orders";
 import CreateOrder from "./pages/client/CreateOrder";
+import OrderStatus from "./pages/client/OrderStatus";
 import OrderDetail from "./pages/client/OrderDetail";
 import OrderHistory from "./pages/client/OrderHistory";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -80,6 +81,15 @@ const AppContent = () => {
           <>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <CreateOrder />
+          </>
+        } 
+      />
+      <Route 
+        path="/client/order-status" 
+        element={
+          <>
+            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <OrderStatus />
           </>
         } 
       />

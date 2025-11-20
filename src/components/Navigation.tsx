@@ -20,7 +20,8 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
   const clientNav = [
     { label: 'Dashboard', path: '/client/dashboard', icon: Package },
     { label: 'Create Order', path: '/client/create-order', icon: FileText },
-    { label: 'My Orders', path: '/client/orders', icon: Clock },
+    { label: 'Order Status', path: '/client/order-status', icon: Clock },
+    { label: 'My Orders', path: '/client/orders', icon: FileText },
   ];
 
   const adminNav = [
