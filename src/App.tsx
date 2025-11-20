@@ -20,6 +20,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import OrderManagement from "./pages/admin/OrderManagement";
 import AdminOrderDetail from "./pages/admin/OrderDetail";
 import ClientManagement from "./pages/admin/ClientManagement";
+import TeamManagement from "./pages/admin/TeamManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -147,6 +148,15 @@ const AppContent = () => {
           <>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <ClientManagement />
+          </>
+        } 
+      />
+      <Route
+        path="/admin/team" 
+        element={
+          <>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <TeamManagement />
           </>
         } 
       />
