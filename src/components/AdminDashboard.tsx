@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -33,6 +34,7 @@ interface Order {
 }
 
 export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -182,7 +184,11 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
             <CardContent>
               <div className="space-y-4">
                 {orders.map((order) => (
-                  <div key={order.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
+                  <div 
+                    key={order.id} 
+                    className="border rounded-lg p-4 hover:bg-accent transition-colors cursor-pointer"
+                    onClick={() => navigate(`/admin/orders/${order.id}`)}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-foreground">{order.order_number}</h3>
