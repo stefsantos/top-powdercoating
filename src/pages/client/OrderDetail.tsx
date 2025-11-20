@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Loader2 } from 'lucide-react';
 import { 
   ArrowLeft, 
   Download, 
@@ -16,46 +18,135 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface OrderData {
+  id: string;
+  order_number: string;
+  status: string;
+  submitted_date: string;
+  estimated_completion: string | null;
+  project_name: string;
+  description: string;
+  quantity: number;
+  dimensions: string | null;
+  additional_notes: string | null;
+  customization?: {
+    finish: string;
+    texture: string;
+    color: string;
+    custom_notes: string | null;
+  };
+  files?: Array<{
+    file_name: string;
+    file_size: number;
+    file_url: string;
+  }>;
+  profile?: {
+    full_name: string;
+    company: string | null;
+    phone: string | null;
+  };
+  user_email?: string;
+}
 
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, fetch based on id
-  const orderData = {
-    orderId: 'ORD-2025-001',
-    status: 'coating',
-    submittedDate: '2025-01-20',
-    estimatedCompletion: '2025-01-25',
-    clientInfo: {
-      name: 'John Doe',
-      company: 'ABC Manufacturing Inc.',
-      email: 'john.doe@abcmfg.com',
-      phone: '+63 912 345 6789',
-      address: '123 Industrial Ave, Makati City, Metro Manila'
-    },
-    orderDetails: {
-      projectName: 'Aluminum Window Frames Project',
-      itemDescription: 'High-quality aluminum window frames for commercial building',
-      quantity: '12 pieces',
-      dimensions: '2m x 1.5m',
-      additionalNotes: 'Handle with care during transport'
-    },
-    customization: {
-      finish: 'Matte',
-      texture: 'Smooth',
-      color: 'Black',
-      notes: 'Premium matte finish required for outdoor use'
-    },
-    uploadedFiles: [
-      { name: 'technical_drawing.pdf', size: 2456 },
-      { name: 'reference_photo.jpg', size: 1234 }
-    ]
+  useEffect(() => {
+    if (id) {
+      fetchOrderDetails();
+    }
+  }, [id]);
+
+  const fetchOrderDetails = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in to view order details');
+        navigate('/login');
+        return;
+      }
+
+      // Fetch order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (orderError) throw orderError;
+      if (!order) {
+        toast.error('Order not found');
+        navigate('/client/orders');
+        return;
+      }
+
+      // Fetch customization
+      const { data: customization } = await supabase
+        .from('order_customizations')
+        .select('*')
+        .eq('order_id', id)
+        .single();
+
+      // Fetch files
+      const { data: files } = await supabase
+        .from('order_files')
+        .select('*')
+        .eq('order_id', id);
+
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, company, phone')
+        .eq('id', user.id)
+        .single();
+
+      setOrderData({
+        ...order,
+        customization: customization || undefined,
+        files: files || [],
+        profile: profile || undefined,
+        user_email: user.email
+      });
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      toast.error('Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDownloadPDF = () => {
-    console.log('Downloading order summary PDF...');
+    toast.info('PDF download feature coming soon');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pt-20">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!orderData) {
+    return (
+      <div className="min-h-screen bg-background pt-20">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <p className="text-center text-muted-foreground">Order not found</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pt-20">
@@ -71,7 +162,7 @@ export default function OrderDetail() {
 
         <div className="flex justify-between items-start mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">{orderData.orderId}</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-2">{orderData.order_number}</h1>
             <p className="text-muted-foreground">Order Details and Summary</p>
           </div>
           <Button onClick={handleDownloadPDF} className="gap-2">
@@ -100,7 +191,7 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-sm text-muted-foreground">Submitted Date</p>
                     <p className="font-medium">
-                      {new Date(orderData.submittedDate).toLocaleDateString('en-US', {
+                      {new Date(orderData.submitted_date).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
@@ -113,11 +204,14 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-sm text-muted-foreground">Estimated Completion</p>
                     <p className="font-medium">
-                      {new Date(orderData.estimatedCompletion).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {orderData.estimated_completion 
+                        ? new Date(orderData.estimated_completion).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : 'TBD'
+                      }
                     </p>
                   </div>
                 </div>
@@ -137,34 +231,29 @@ export default function OrderDetail() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Name</p>
-                  <p className="font-medium">{orderData.clientInfo.name}</p>
+                  <p className="font-medium">{orderData.profile?.full_name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Company</p>
                   <div className="flex items-center gap-2">
                     <Building className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{orderData.clientInfo.company}</p>
+                    <p className="font-medium">{orderData.profile?.company || 'N/A'}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Email</p>
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{orderData.clientInfo.email}</p>
+                    <p className="font-medium">{orderData.user_email || 'N/A'}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Phone</p>
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{orderData.clientInfo.phone}</p>
+                    <p className="font-medium">{orderData.profile?.phone || 'N/A'}</p>
                   </div>
                 </div>
-              </div>
-              <Separator />
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Address</p>
-                <p className="font-medium">{orderData.clientInfo.address}</p>
               </div>
             </CardContent>
           </Card>
@@ -180,29 +269,29 @@ export default function OrderDetail() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Project Name</p>
-                <p className="font-medium text-lg">{orderData.orderDetails.projectName}</p>
+                <p className="font-medium text-lg">{orderData.project_name}</p>
               </div>
               <Separator />
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Item Description</p>
-                <p className="font-medium">{orderData.orderDetails.itemDescription}</p>
+                <p className="font-medium">{orderData.description}</p>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Quantity</p>
-                  <p className="font-medium">{orderData.orderDetails.quantity}</p>
+                  <p className="font-medium">{orderData.quantity}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Dimensions</p>
-                  <p className="font-medium">{orderData.orderDetails.dimensions}</p>
+                  <p className="font-medium">{orderData.dimensions || 'N/A'}</p>
                 </div>
               </div>
-              {orderData.orderDetails.additionalNotes && (
+              {orderData.additional_notes && (
                 <>
                   <Separator />
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Additional Notes</p>
-                    <p className="font-medium">{orderData.orderDetails.additionalNotes}</p>
+                    <p className="font-medium">{orderData.additional_notes}</p>
                   </div>
                 </>
               )}
@@ -218,34 +307,40 @@ export default function OrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Finish</p>
-                  <p className="font-semibold text-lg">{orderData.customization.finish}</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Texture</p>
-                  <p className="font-semibold text-lg">{orderData.customization.texture}</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Color</p>
-                  <p className="font-semibold text-lg">{orderData.customization.color}</p>
-                </div>
-              </div>
-              {orderData.customization.notes && (
+              {orderData.customization ? (
                 <>
-                  <Separator />
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Customization Notes</p>
-                    <p className="font-medium">{orderData.customization.notes}</p>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">Finish</p>
+                      <p className="font-semibold text-lg capitalize">{orderData.customization.finish}</p>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">Texture</p>
+                      <p className="font-semibold text-lg capitalize">{orderData.customization.texture}</p>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">Color</p>
+                      <p className="font-semibold text-lg">{orderData.customization.color}</p>
+                    </div>
                   </div>
+                  {orderData.customization.custom_notes && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Customization Notes</p>
+                        <p className="font-medium">{orderData.customization.custom_notes}</p>
+                      </div>
+                    </>
+                  )}
                 </>
+              ) : (
+                <p className="text-muted-foreground">No customization details available</p>
               )}
             </CardContent>
           </Card>
 
           {/* Uploaded Files */}
-          {orderData.uploadedFiles.length > 0 && (
+          {orderData.files && orderData.files.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -255,18 +350,22 @@ export default function OrderDetail() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {orderData.uploadedFiles.map((file, index) => (
+                  {orderData.files.map((file, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="text-sm font-medium">{file.name}</p>
+                          <p className="text-sm font-medium">{file.file_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {(file.size / 1024).toFixed(2)} KB
+                            {(file.file_size / 1024).toFixed(2)} KB
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => window.open(file.file_url, '_blank')}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
