@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          order_id: string | null
+          priority: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          order_id?: string | null
+          priority?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          order_id?: string | null
+          priority?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_customizations: {
         Row: {
           color: string
@@ -122,6 +163,42 @@ export type Database = {
           },
         ]
       }
+      order_team_assignments: {
+        Row: {
+          assigned_at: string
+          id: string
+          order_id: string
+          team_member_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          order_id: string
+          team_member_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          order_id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_team_assignments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_team_assignments_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           additional_notes: string | null
@@ -200,6 +277,33 @@ export type Database = {
           id?: string
           phone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          department: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          department: string
+          id?: string
+          name: string
+          role: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          department?: string
+          id?: string
+          name?: string
+          role?: string
         }
         Relationships: []
       }
