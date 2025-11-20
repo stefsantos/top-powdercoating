@@ -285,28 +285,37 @@ export type Database = {
       }
       team_members: {
         Row: {
+          availability: string | null
           avatar_url: string | null
           created_at: string
           department: string
           id: string
           name: string
           role: string
+          status: string | null
+          updated_at: string | null
         }
         Insert: {
+          availability?: string | null
           avatar_url?: string | null
           created_at?: string
           department: string
           id?: string
           name: string
           role: string
+          status?: string | null
+          updated_at?: string | null
         }
         Update: {
+          availability?: string | null
           avatar_url?: string | null
           created_at?: string
           department?: string
           id?: string
           name?: string
           role?: string
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
