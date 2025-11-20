@@ -28,6 +28,7 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
     { label: 'Dashboard', path: '/admin/dashboard', icon: BarChart },
     { label: 'Orders', path: '/admin/orders', icon: Package },
     { label: 'Clients', path: '/admin/clients', icon: Users },
+    { label: 'Team', path: '/admin/team', icon: Users },
   ];
 
   const navItems = isAdmin ? adminNav : clientNav;
