@@ -210,6 +210,7 @@ export type Database = {
           id: string
           order_number: string
           priority: Database["public"]["Enums"]["order_priority"]
+          progress: number | null
           project_name: string
           quantity: number
           status: Database["public"]["Enums"]["order_status"]
@@ -227,6 +228,7 @@ export type Database = {
           id?: string
           order_number: string
           priority?: Database["public"]["Enums"]["order_priority"]
+          progress?: number | null
           project_name: string
           quantity: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -244,6 +246,7 @@ export type Database = {
           id?: string
           order_number?: string
           priority?: Database["public"]["Enums"]["order_priority"]
+          progress?: number | null
           project_name?: string
           quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -347,13 +350,13 @@ export type Database = {
       finish_type: "matte" | "glossy" | "satin"
       order_priority: "low" | "medium" | "high" | "urgent"
       order_status:
-        | "received"
-        | "in_preparation"
-        | "coating_in_progress"
-        | "quality_check"
-        | "ready_for_pickup"
+        | "queued"
+        | "sand-blasting"
+        | "coating"
+        | "curing"
+        | "quality-check"
         | "completed"
-        | "cancelled"
+        | "delayed"
       texture_type: "smooth" | "textured" | "hammered"
     }
     CompositeTypes: {
@@ -486,13 +489,13 @@ export const Constants = {
       finish_type: ["matte", "glossy", "satin"],
       order_priority: ["low", "medium", "high", "urgent"],
       order_status: [
-        "received",
-        "in_preparation",
-        "coating_in_progress",
-        "quality_check",
-        "ready_for_pickup",
+        "queued",
+        "sand-blasting",
+        "coating",
+        "curing",
+        "quality-check",
         "completed",
-        "cancelled",
+        "delayed",
       ],
       texture_type: ["smooth", "textured", "hammered"],
     },
