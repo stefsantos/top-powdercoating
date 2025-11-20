@@ -6,8 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Eye, Edit, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Eye, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,8 +28,6 @@ export default function OrderManagement() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [newStatus, setNewStatus] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -67,27 +64,8 @@ export default function OrderManagement() {
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (!selectedOrder || !newStatus) return;
-    try {
-      const validStatuses = ['received', 'in_preparation', 'coating_in_progress', 'quality_check', 'ready_for_pickup', 'completed', 'cancelled'];
-      if (!validStatuses.includes(newStatus)) {
-        toast.error('Invalid status');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus as any })
-        .eq('id', selectedOrder.id);
-
-      if (error) throw error;
-      await fetchOrders();
-      toast.success('Order updated');
-      setSelectedOrder(null);
-    } catch (error) {
-      toast.error('Update failed');
-    }
+  const handleViewDetails = (orderId: string) => {
+    navigate(`/admin/orders/${orderId}`);
   };
 
   const filteredOrders = orders.filter(o => {
@@ -154,10 +132,10 @@ export default function OrderManagement() {
                   <TableCell className="max-w-xs truncate">{order.description}</TableCell>
                   <TableCell><Badge>{order.status}</Badge></TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/client/orders/${order.id}`)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(order); setNewStatus(order.status); }}><Edit className="h-4 w-4" /></Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={() => handleViewDetails(order.id)}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Edit Details
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -165,22 +143,6 @@ export default function OrderManagement() {
           </Table>
         </CardContent>
       </Card>
-
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Update Status</DialogTitle></DialogHeader>
-          <Select value={newStatus} onValueChange={setNewStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="received">Received</SelectItem>
-              <SelectItem value="in_preparation">In Preparation</SelectItem>
-              <SelectItem value="coating_in_progress">Coating</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={handleUpdateStatus}>Update</Button>
-        </DialogContent>
-      </Dialog>
     </div>
     </ScrollArea>
   );

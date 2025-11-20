@@ -1,0 +1,714 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+  ArrowLeft, 
+  Save, 
+  Calendar, 
+  User, 
+  Package, 
+  FileText, 
+  Palette,
+  Building,
+  Mail,
+  Phone,
+  Clock,
+  Zap,
+  Shield,
+  CheckCircle,
+  Users,
+  History,
+  Loader2
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface OrderData {
+  id: string;
+  order_number: string;
+  status: string;
+  priority: string;
+  submitted_date: string;
+  estimated_completion: string | null;
+  completed_date: string | null;
+  project_name: string;
+  description: string;
+  quantity: number;
+  dimensions: string | null;
+  additional_notes: string | null;
+  progress: number;
+  customization?: {
+    finish: string;
+    texture: string;
+    color: string;
+    custom_notes: string | null;
+  };
+  files?: Array<{
+    file_name: string;
+    file_size: number;
+    file_url: string;
+  }>;
+  profile?: {
+    full_name: string;
+    company: string | null;
+    phone: string | null;
+  };
+  user_email?: string;
+  user_id?: string;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+}
+
+interface StatusHistoryItem {
+  id: string;
+  status: string;
+  changed_at: string;
+  changed_by: string | null;
+  notes: string | null;
+}
+
+const statusSteps = [
+  { key: 'queued', label: 'Queued', icon: Clock, color: 'bg-blue-500', description: 'Order submitted and queued' },
+  { key: 'sand-blasting', label: 'Sand Blasting', icon: Package, color: 'bg-orange-500', description: 'Surface preparation' },
+  { key: 'coating', label: 'Coating', icon: Package, color: 'bg-orange-500', description: 'Coating application' },
+  { key: 'curing', label: 'Curing', icon: Zap, color: 'bg-purple-500', description: 'Heat curing process' },
+  { key: 'quality-check', label: 'Quality Check', icon: Shield, color: 'bg-indigo-500', description: 'Quality assurance' },
+  { key: 'completed', label: 'Completed', icon: CheckCircle, color: 'bg-green-500', description: 'Ready for pickup' }
+];
+
+export default function AdminOrderDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assignedTeamMembers, setAssignedTeamMembers] = useState<string[]>([]);
+  const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
+  
+  // Editable fields
+  const [status, setStatus] = useState('');
+  const [priority, setPriority] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [estimatedCompletion, setEstimatedCompletion] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (id) {
+      fetchOrderDetails();
+      fetchTeamMembers();
+      fetchStatusHistory();
+    }
+  }, [id]);
+
+  const fetchOrderDetails = async () => {
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Fetch customization
+      const { data: customization } = await supabase
+        .from('order_customizations')
+        .select('*')
+        .eq('order_id', id)
+        .single();
+
+      // Fetch files
+      const { data: files } = await supabase
+        .from('order_files')
+        .select('*')
+        .eq('order_id', id);
+
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, company, phone')
+        .eq('id', order.user_id)
+        .single();
+
+      // Fetch assigned team members
+      const { data: assignments } = await supabase
+        .from('order_team_assignments')
+        .select('team_member_id')
+        .eq('order_id', id);
+
+      setOrderData({
+        ...order,
+        customization: customization || undefined,
+        files: files || [],
+        profile: profile || undefined
+      });
+
+      setStatus(order.status);
+      setPriority(order.priority);
+      setProgress(order.progress || 0);
+      setEstimatedCompletion(order.estimated_completion || '');
+      setNotes(order.additional_notes || '');
+      setAssignedTeamMembers(assignments?.map(a => a.team_member_id) || []);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
+
+  const fetchStatusHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('order_status_history')
+        .select('*')
+        .eq('order_id', id)
+        .order('changed_at', { ascending: false });
+
+      if (error) throw error;
+      setStatusHistory(data || []);
+    } catch (error) {
+      console.error('Error fetching status history:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!orderData) return;
+    
+    setSaving(true);
+    try {
+      // Update order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({
+          status: status as any,
+          priority: priority as any,
+          progress,
+          estimated_completion: estimatedCompletion || null,
+          additional_notes: notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (orderError) throw orderError;
+
+      // Update team assignments
+      // First, delete existing assignments
+      const { error: deleteError } = await supabase
+        .from('order_team_assignments')
+        .delete()
+        .eq('order_id', id);
+
+      if (deleteError) throw deleteError;
+
+      // Then, insert new assignments
+      if (assignedTeamMembers.length > 0) {
+        const assignments = assignedTeamMembers.map(memberId => ({
+          order_id: id!,
+          team_member_id: memberId
+        }));
+
+        const { error: insertError } = await supabase
+          .from('order_team_assignments')
+          .insert(assignments);
+
+        if (insertError) throw insertError;
+      }
+
+      toast.success('Order updated successfully');
+      await fetchOrderDetails();
+      await fetchStatusHistory();
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('Failed to update order');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTeamMember = (memberId: string) => {
+    setAssignedTeamMembers(prev => 
+      prev.includes(memberId) 
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
+  const getStatusIndex = (statusKey: string) => {
+    return statusSteps.findIndex(step => step.key === statusKey);
+  };
+
+  const isStatusActive = (stepIndex: number) => {
+    const currentIndex = getStatusIndex(status);
+    return stepIndex <= currentIndex;
+  };
+
+  const getStatusBadgeColor = (statusKey: string) => {
+    switch (statusKey) {
+      case 'completed': return 'bg-green-500 text-white';
+      case 'quality-check': return 'bg-indigo-500 text-white';
+      case 'curing': return 'bg-purple-500 text-white';
+      case 'coating':
+      case 'sand-blasting': return 'bg-orange-500 text-white';
+      case 'queued': return 'bg-blue-500 text-white';
+      case 'delayed': return 'bg-red-500 text-white';
+      default: return 'bg-gray-500 text-white';
+    }
+  };
+
+  const getPriorityColor = (priorityKey: string) => {
+    switch (priorityKey) {
+      case 'urgent': return 'bg-red-500 text-white';
+      case 'high': return 'bg-orange-500 text-white';
+      case 'medium': return 'bg-yellow-500 text-white';
+      case 'low': return 'bg-green-500 text-white';
+      default: return 'bg-gray-500 text-white';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pt-20">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!orderData) {
+    return (
+      <div className="min-h-screen bg-background pt-20">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Order not found</h2>
+            <Button onClick={() => navigate('/admin/orders')}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Orders
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pt-20">
+        <div className="container mx-auto px-4 py-8 max-w-7xl space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" onClick={() => navigate('/admin/orders')}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold">{orderData.order_number}</h1>
+                <p className="text-muted-foreground">Order Details & Management</p>
+              </div>
+            </div>
+            <Button onClick={handleSave} disabled={saving} size="lg">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </div>
+
+          {/* Status Overview & Progress */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Status & Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Current Status & Priority */}
+              <div className="flex items-center gap-4">
+                <Badge className={getStatusBadgeColor(status)}>
+                  {statusSteps.find(s => s.key === status)?.label || status}
+                </Badge>
+                <Badge className={getPriorityColor(priority)}>
+                  {priority.toUpperCase()} Priority
+                </Badge>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Progress</Label>
+                  <span className="text-sm font-bold">{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-3" />
+              </div>
+
+              {/* Status Timeline */}
+              <div className="flex items-center justify-between px-4">
+                {statusSteps.map((step, index) => {
+                  const Icon = step.icon;
+                  const isActive = isStatusActive(index);
+                  const isCurrent = status === step.key;
+
+                  return (
+                    <div key={step.key} className="flex flex-col items-center">
+                      <div
+                        className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${
+                          isActive ? step.color : 'bg-muted'
+                        } ${isCurrent ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                      >
+                        <Icon className={`h-6 w-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                      </div>
+                      <span className={`mt-2 text-xs font-medium text-center ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Edit Status & Priority */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Update Status</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger id="status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusSteps.map(step => (
+                        <SelectItem key={step.key} value={step.key}>{step.label}</SelectItem>
+                      ))}
+                      <SelectItem value="delayed">Delayed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select value={priority} onValueChange={setPriority}>
+                    <SelectTrigger id="priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="progress">Progress (%)</Label>
+                  <Input
+                    id="progress"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={progress}
+                    onChange={(e) => setProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                  />
+                </div>
+              </div>
+
+              {/* Estimated Completion */}
+              <div className="space-y-2">
+                <Label htmlFor="estimated">Estimated Completion Date</Label>
+                <Input
+                  id="estimated"
+                  type="date"
+                  value={estimatedCompletion}
+                  onChange={(e) => setEstimatedCompletion(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Order & Client Info */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Client Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Client Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3">
+                      <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Full Name</p>
+                        <p className="font-medium">{orderData.profile?.full_name || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Company</p>
+                        <p className="font-medium">{orderData.profile?.company || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">{orderData.user_email || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Phone</p>
+                        <p className="font-medium">{orderData.profile?.phone || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Order Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Order Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Project Name</p>
+                      <p className="font-medium">{orderData.project_name}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-muted-foreground">Quantity</p>
+                      <p className="font-medium">{orderData.quantity} items</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Submitted Date</p>
+                      <p className="font-medium">{new Date(orderData.submitted_date).toLocaleDateString()}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Dimensions</p>
+                      <p className="font-medium">{orderData.dimensions || 'Not specified'}</p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Description</p>
+                    <p className="font-medium">{orderData.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Customization Details */}
+              {orderData.customization && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Palette className="h-5 w-5" />
+                      Customization Specifications
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Finish Type</p>
+                        <p className="font-medium capitalize">{orderData.customization.finish}</p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-muted-foreground">Texture</p>
+                        <p className="font-medium capitalize">{orderData.customization.texture}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-muted-foreground">Color</p>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-6 w-6 rounded border"
+                            style={{ backgroundColor: orderData.customization.color }}
+                          />
+                          <p className="font-medium">{orderData.customization.color}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {orderData.customization.custom_notes && (
+                      <>
+                        <Separator className="my-4" />
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-2">Custom Notes</p>
+                          <p className="font-medium">{orderData.customization.custom_notes}</p>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Files */}
+              {orderData.files && orderData.files.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Attached Files
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {orderData.files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{file.file_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(file.file_size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={file.file_url} target="_blank" rel="noopener noreferrer">
+                              View
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Admin Notes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Add notes about this order..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Team & History */}
+            <div className="space-y-6">
+              {/* Team Assignment */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Assign Team Members
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-3">
+                      {teamMembers.map(member => (
+                        <div key={member.id} className="flex items-start gap-3 p-2 rounded hover:bg-accent">
+                          <Checkbox
+                            id={member.id}
+                            checked={assignedTeamMembers.includes(member.id)}
+                            onCheckedChange={() => toggleTeamMember(member.id)}
+                          />
+                          <div className="flex-1">
+                            <label htmlFor={member.id} className="text-sm font-medium cursor-pointer">
+                              {member.name}
+                            </label>
+                            <p className="text-xs text-muted-foreground">{member.role} • {member.department}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Status History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Status History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-3">
+                      {statusHistory.length > 0 ? (
+                        statusHistory.map(item => (
+                          <div key={item.id} className="border-l-2 border-primary pl-4 pb-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="capitalize">
+                                {item.status.replace('-', ' ')}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(item.changed_at).toLocaleString()}
+                            </p>
+                            {item.notes && (
+                              <p className="text-sm mt-1">{item.notes}</p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No status changes yet
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
