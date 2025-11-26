@@ -19,6 +19,7 @@ import {
   Grid3x3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ColorPickerWheel } from '@/components/ui/color-picker-wheel';
 
 const finishOptions = [
   { value: 'matte', label: 'Matte', description: 'Non-reflective, smooth finish' },
@@ -361,7 +362,7 @@ export default function CreateOrder() {
                             : 'border-border hover:border-primary/50'}
                         `}
                         style={{ 
-                          background: option.hex || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                          background: option.hex || 'conic-gradient(from 0deg, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)'
                         }}
                       >
                         {color === option.value && (
@@ -372,13 +373,14 @@ export default function CreateOrder() {
                   </div>
                   
                   {color === 'custom' && (
-                    <div className="space-y-2">
-                      <Label>Custom Color Code</Label>
-                      <Input
-                        placeholder="Enter hex code (e.g., #FF5733)"
-                        value={customColor}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                      />
+                    <div className="space-y-4 pt-2">
+                      <Label>Pick Your Custom Color</Label>
+                      <div className="flex justify-center">
+                        <ColorPickerWheel 
+                          value={customColor} 
+                          onChange={setCustomColor}
+                        />
+                      </div>
                     </div>
                   )}
 
