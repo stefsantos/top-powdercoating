@@ -28,7 +28,8 @@ import {
   CheckCircle,
   Users,
   History,
-  Loader2
+  Loader2,
+  DollarSign
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -47,6 +48,8 @@ interface OrderData {
   dimensions: string | null;
   additional_notes: string | null;
   progress: number;
+  quoted_price: number | null;
+  quote_approved: boolean | null;
   customization?: {
     finish: string;
     texture: string;
@@ -82,8 +85,10 @@ interface StatusHistoryItem {
   notes: string | null;
 }
 
+// Updated to match database enum values - includes pending_quote
 const statusSteps = [
-  { key: 'queued', label: 'Queued', icon: Clock, color: 'bg-blue-500', description: 'Order submitted and queued' },
+  { key: 'pending_quote', label: 'Pending Quote', icon: DollarSign, color: 'bg-yellow-500', description: 'Awaiting price quote' },
+  { key: 'queued', label: 'Queued', icon: Clock, color: 'bg-blue-500', description: 'Order queued for production' },
   { key: 'sand-blasting', label: 'Sand Blasting', icon: Package, color: 'bg-orange-500', description: 'Surface preparation' },
   { key: 'coating', label: 'Coating', icon: Package, color: 'bg-orange-500', description: 'Coating application' },
   { key: 'curing', label: 'Curing', icon: Zap, color: 'bg-purple-500', description: 'Heat curing process' },
@@ -107,6 +112,7 @@ export default function AdminOrderDetail() {
   const [progress, setProgress] = useState(0);
   const [estimatedCompletion, setEstimatedCompletion] = useState('');
   const [notes, setNotes] = useState('');
+  const [quotedPrice, setQuotedPrice] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -162,8 +168,9 @@ export default function AdminOrderDetail() {
       setStatus(order.status);
       setPriority(order.priority);
       setProgress(order.progress || 0);
-      setEstimatedCompletion(order.estimated_completion || '');
+      setEstimatedCompletion(order.estimated_completion ? order.estimated_completion.split('T')[0] : '');
       setNotes(order.additional_notes || '');
+      setQuotedPrice(order.quoted_price ? order.quoted_price.toString() : '');
       setAssignedTeamMembers(assignments?.map(a => a.team_member_id) || []);
     } catch (error) {
       console.error('Error:', error);
@@ -207,23 +214,30 @@ export default function AdminOrderDetail() {
     
     setSaving(true);
     try {
+      // Prepare update data
+      const updateData: any = {
+        status: status as any,
+        priority: priority as any,
+        progress,
+        estimated_completion: estimatedCompletion || null,
+        additional_notes: notes,
+        updated_at: new Date().toISOString()
+      };
+
+      // Add quoted_price if provided
+      if (quotedPrice) {
+        updateData.quoted_price = parseFloat(quotedPrice);
+      }
+
       // Update order
       const { error: orderError } = await supabase
         .from('orders')
-        .update({
-          status: status as any,
-          priority: priority as any,
-          progress,
-          estimated_completion: estimatedCompletion || null,
-          additional_notes: notes,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (orderError) throw orderError;
 
       // Update team assignments
-      // First, delete existing assignments
       const { error: deleteError } = await supabase
         .from('order_team_assignments')
         .delete()
@@ -231,7 +245,6 @@ export default function AdminOrderDetail() {
 
       if (deleteError) throw deleteError;
 
-      // Then, insert new assignments
       if (assignedTeamMembers.length > 0) {
         const assignments = assignedTeamMembers.map(memberId => ({
           order_id: id!,
@@ -281,6 +294,7 @@ export default function AdminOrderDetail() {
       case 'coating':
       case 'sand-blasting': return 'bg-orange-500 text-white';
       case 'queued': return 'bg-blue-500 text-white';
+      case 'pending_quote': return 'bg-yellow-500 text-white';
       case 'delayed': return 'bg-red-500 text-white';
       default: return 'bg-gray-500 text-white';
     }
@@ -344,6 +358,50 @@ export default function AdminOrderDetail() {
             </Button>
           </div>
 
+          {/* Quote Section - Show prominently if pending quote */}
+          {(status === 'pending_quote' || !orderData.quote_approved) && (
+            <Card className="border-yellow-500 border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-yellow-600">
+                  <DollarSign className="h-5 w-5" />
+                  Quote Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quotedPrice">Quoted Price (₱)</Label>
+                    <Input
+                      id="quotedPrice"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter quote amount"
+                      value={quotedPrice}
+                      onChange={(e) => setQuotedPrice(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quote Status</Label>
+                    <div className="flex items-center gap-2 pt-2">
+                      {orderData.quote_approved ? (
+                        <Badge className="bg-green-500 text-white">Approved by Client</Badge>
+                      ) : quotedPrice ? (
+                        <Badge className="bg-yellow-500 text-white">Awaiting Client Approval</Badge>
+                      ) : (
+                        <Badge className="bg-gray-500 text-white">No Quote Set</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Set a quote price and save. The client will be notified and can approve the quote from their dashboard.
+                  Once approved, you can move the order to "Queued" status to begin production.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status Overview & Progress */}
           <Card>
             <CardHeader>
@@ -358,6 +416,11 @@ export default function AdminOrderDetail() {
                 <Badge className={getPriorityColor(priority)}>
                   {priority.toUpperCase()} Priority
                 </Badge>
+                {orderData.quoted_price && (
+                  <Badge variant="outline">
+                    Quote: ₱{Number(orderData.quoted_price).toLocaleString()}
+                  </Badge>
+                )}
               </div>
 
               {/* Progress Bar */}
@@ -370,14 +433,14 @@ export default function AdminOrderDetail() {
               </div>
 
               {/* Status Timeline */}
-              <div className="flex items-center justify-between px-4">
+              <div className="flex items-center justify-between px-4 overflow-x-auto">
                 {statusSteps.map((step, index) => {
                   const Icon = step.icon;
                   const isActive = isStatusActive(index);
                   const isCurrent = status === step.key;
 
                   return (
-                    <div key={step.key} className="flex flex-col items-center">
+                    <div key={step.key} className="flex flex-col items-center min-w-[80px]">
                       <div
                         className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${
                           isActive ? step.color : 'bg-muted'
@@ -685,7 +748,7 @@ export default function AdminOrderDetail() {
                           <div key={item.id} className="border-l-2 border-primary pl-4 pb-4">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="capitalize">
-                                {item.status.replace('-', ' ')}
+                                {item.status.replace('-', ' ').replace('_', ' ')}
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground">

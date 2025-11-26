@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Eye, Package, Clock, CheckCircle2, AlertCircle, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,6 +68,26 @@ export default function OrderManagement() {
     navigate(`/admin/orders/${orderId}`);
   };
 
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'pending_quote': 'bg-yellow-500 text-white',
+      'queued': 'bg-blue-500 text-white',
+      'sand-blasting': 'bg-orange-500 text-white',
+      'coating': 'bg-primary text-primary-foreground',
+      'curing': 'bg-purple-500 text-white',
+      'quality-check': 'bg-indigo-500 text-white',
+      'completed': 'bg-green-500 text-white',
+      'delayed': 'bg-red-500 text-white',
+    };
+    return colors[status] || 'bg-muted text-muted-foreground';
+  };
+
+  const formatStatus = (status: string) => {
+    return status.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ').replace('_', ' ');
+  };
+
   const filteredOrders = orders.filter(o => {
     const matchesSearch = o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          (o.profiles?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -76,10 +96,11 @@ export default function OrderManagement() {
   });
 
   const stats = {
-    queued: orders.filter(o => o.status === 'received').length,
-    inProgress: orders.filter(o => ['in_preparation', 'coating_in_progress', 'quality_check'].includes(o.status)).length,
+    pendingQuote: orders.filter(o => o.status === 'pending_quote').length,
+    queued: orders.filter(o => o.status === 'queued').length,
+    inProgress: orders.filter(o => ['sand-blasting', 'coating', 'curing', 'quality-check'].includes(o.status)).length,
     completed: orders.filter(o => o.status === 'completed').length,
-    delayed: 0
+    delayed: orders.filter(o => o.status === 'delayed').length
   };
 
   return (
@@ -87,11 +108,42 @@ export default function OrderManagement() {
       <div className="container mx-auto p-6 max-w-7xl pt-24">
       <h1 className="text-4xl font-bold mb-8">Order Management</h1>
       
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
-        <Card><CardContent className="pt-6"><Clock className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.queued}</div><p className="text-sm text-muted-foreground">Queued</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><Package className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.inProgress}</div><p className="text-sm text-muted-foreground">In Progress</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><CheckCircle2 className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.completed}</div><p className="text-sm text-muted-foreground">Completed</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><AlertCircle className="h-6 w-6 mb-2" /><div className="text-2xl font-bold">{stats.delayed}</div><p className="text-sm text-muted-foreground">Delayed</p></CardContent></Card>
+      <div className="grid md:grid-cols-5 gap-4 mb-8">
+        <Card>
+          <CardContent className="pt-6">
+            <DollarSign className="h-6 w-6 mb-2 text-yellow-500" />
+            <div className="text-2xl font-bold">{stats.pendingQuote}</div>
+            <p className="text-sm text-muted-foreground">Pending Quote</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <Clock className="h-6 w-6 mb-2 text-blue-500" />
+            <div className="text-2xl font-bold">{stats.queued}</div>
+            <p className="text-sm text-muted-foreground">Queued</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <Package className="h-6 w-6 mb-2 text-orange-500" />
+            <div className="text-2xl font-bold">{stats.inProgress}</div>
+            <p className="text-sm text-muted-foreground">In Progress</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <CheckCircle2 className="h-6 w-6 mb-2 text-green-500" />
+            <div className="text-2xl font-bold">{stats.completed}</div>
+            <p className="text-sm text-muted-foreground">Completed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <AlertCircle className="h-6 w-6 mb-2 text-red-500" />
+            <div className="text-2xl font-bold">{stats.delayed}</div>
+            <p className="text-sm text-muted-foreground">Delayed</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -104,11 +156,15 @@ export default function OrderManagement() {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="received">Received</SelectItem>
-                <SelectItem value="in_preparation">In Preparation</SelectItem>
-                <SelectItem value="coating_in_progress">Coating</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending_quote">Pending Quote</SelectItem>
+                <SelectItem value="queued">Queued</SelectItem>
+                <SelectItem value="sand-blasting">Sand Blasting</SelectItem>
+                <SelectItem value="coating">Coating</SelectItem>
+                <SelectItem value="curing">Curing</SelectItem>
+                <SelectItem value="quality-check">Quality Check</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="delayed">Delayed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -130,7 +186,11 @@ export default function OrderManagement() {
                   <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>{order.profiles?.full_name || 'N/A'}</TableCell>
                   <TableCell className="max-w-xs truncate">{order.description}</TableCell>
-                  <TableCell><Badge>{order.status}</Badge></TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(order.status)}>
+                      {formatStatus(order.status)}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => handleViewDetails(order.id)}>
                       <Eye className="h-4 w-4 mr-2" />

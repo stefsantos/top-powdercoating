@@ -30,7 +30,8 @@ import {
   Calendar,
   DollarSign,
   Users,
-  Loader2
+  Loader2,
+  UserX
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -91,14 +92,18 @@ export default function ClientManagement() {
       // Map profiles to clients with order statistics
       const clientsData: Client[] = (profiles || []).map(profile => {
         const userOrders = (orders || []).filter(order => order.user_id === profile.id);
-        // Count orders that are still in progress (not in final states)
+        
+        // Count orders that are NOT completed or delayed (these are "active" in-progress orders)
         const activeOrders = userOrders.filter(order => 
-          !['curing', 'quality-check'].includes(order.status)
+          !['completed', 'delayed'].includes(order.status)
         ).length;
         
-        // Calculate total revenue from quoted prices
+        // Calculate total revenue from quoted prices (only approved quotes)
         const totalValue = userOrders.reduce((sum, order) => {
-          return sum + (order.quoted_price ? Number(order.quoted_price) : 0);
+          if (order.quote_approved && order.quoted_price) {
+            return sum + Number(order.quoted_price);
+          }
+          return sum;
         }, 0);
 
         // Get last order date
@@ -165,17 +170,20 @@ export default function ClientManagement() {
       .slice(0, 2);
   };
 
-  const filteredClients = clients.filter(client =>
+  // Filter out admins from display list but keep them in stats
+  const displayClients = clients.filter(client => !client.isAdmin);
+
+  const filteredClients = displayClients.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (client.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const stats = {
-    total: clients.length,
+    total: displayClients.length,
     active: clients.filter(c => c.status === 'active').length,
     inactive: clients.filter(c => c.status === 'inactive').length,
     admins: clients.filter(c => c.status === 'admin').length,
-    totalRevenue: clients.reduce((sum, c) => sum + c.totalValue, 0)
+    totalRevenue: displayClients.reduce((sum, c) => sum + c.totalValue, 0)
   };
 
   if (loading) {
@@ -196,7 +204,7 @@ export default function ClientManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid md:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -214,12 +222,26 @@ export default function ClientManagement() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Building className="h-6 w-6 text-primary" />
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <Building className="h-6 w-6 text-green-500" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.active}</p>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <UserX className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.inactive}</p>
+                  <p className="text-sm text-muted-foreground">Inactive Clients</p>
                 </div>
               </div>
             </CardContent>
@@ -247,7 +269,9 @@ export default function ClientManagement() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    ₱{stats.totalRevenue >= 1000 
+                    ₱{stats.totalRevenue >= 1000000 
+                      ? `${(stats.totalRevenue / 1000000).toFixed(1)}M`
+                      : stats.totalRevenue >= 1000 
                       ? `${(stats.totalRevenue / 1000).toFixed(1)}K` 
                       : stats.totalRevenue.toLocaleString()}
                   </p>
@@ -277,7 +301,7 @@ export default function ClientManagement() {
           <CardContent>
             {filteredClients.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                {clients.length === 0 
+                {displayClients.length === 0 
                   ? 'No clients found. Clients will appear here when they sign up.'
                   : 'No clients match your search.'}
               </div>
@@ -431,13 +455,18 @@ export default function ClientManagement() {
                                           </p>
                                         </div>
                                       </div>
-                                      <div>
-                                        <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
-                                        <div className="flex items-center gap-2">
-                                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                          <p className="font-medium">₱{selectedClient.totalValue.toLocaleString()}</p>
-                                        </div>
-                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <Separator />
+
+                                  <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
+                                    <div className="flex items-center gap-2">
+                                      <DollarSign className="h-5 w-5 text-primary" />
+                                      <p className="text-2xl font-bold">
+                                        ₱{selectedClient.totalValue.toLocaleString()}
+                                      </p>
                                     </div>
                                   </div>
                                 </div>

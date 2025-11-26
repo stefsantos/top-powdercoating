@@ -16,7 +16,8 @@ import {
   CheckCircle,
   Building,
   Mail,
-  Phone
+  Phone,
+  DollarSign
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -32,6 +33,8 @@ interface OrderData {
   quantity: number;
   dimensions: string | null;
   additional_notes: string | null;
+  quoted_price: number | null;
+  quote_approved: boolean | null;
   customization?: {
     finish: string;
     texture: string;
@@ -56,6 +59,7 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -122,8 +126,54 @@ export default function OrderDetail() {
     }
   };
 
+  const handleApproveQuote = async () => {
+    if (!orderData) return;
+    
+    setApproving(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          quote_approved: true,
+          quote_approved_at: new Date().toISOString(),
+          status: 'queued' as any // Move to queued after approval
+        })
+        .eq('id', orderData.id);
+
+      if (error) throw error;
+
+      toast.success('Quote approved! Your order is now queued for production.');
+      await fetchOrderDetails();
+    } catch (error) {
+      console.error('Error approving quote:', error);
+      toast.error('Failed to approve quote');
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const handleDownloadPDF = () => {
     toast.info('PDF download feature coming soon');
+  };
+
+  const formatStatus = (status: string) => {
+    return status.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ').replace('_', ' ');
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'pending_quote': 'bg-yellow-500 text-white',
+      'queued': 'bg-blue-500 text-white',
+      'sand-blasting': 'bg-orange-500 text-white',
+      'coating': 'bg-primary text-primary-foreground',
+      'curing': 'bg-purple-500 text-white',
+      'quality-check': 'bg-indigo-500 text-white',
+      'completed': 'bg-green-500 text-white',
+      'delayed': 'bg-red-500 text-white',
+    };
+    return colors[status] || 'bg-muted';
   };
 
   if (loading) {
@@ -147,6 +197,8 @@ export default function OrderDetail() {
       </div>
     );
   }
+
+  const showQuoteApproval = orderData.status === 'pending_quote' && orderData.quoted_price && !orderData.quote_approved;
 
   return (
     <div className="min-h-screen bg-background pt-20">
@@ -172,15 +224,51 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-6">
+          {/* Quote Approval Card - Show prominently if quote is ready */}
+          {showQuoteApproval && (
+            <Card className="border-yellow-500 border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-yellow-600">
+                  <DollarSign className="h-5 w-5" />
+                  Quote Ready for Approval
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Quoted Price</p>
+                    <p className="text-3xl font-bold text-foreground">
+                      ₱{Number(orderData.quoted_price).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button 
+                    size="lg" 
+                    onClick={handleApproveQuote}
+                    disabled={approving}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {approving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Approve Quote
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  By approving this quote, you confirm the price and authorize us to begin production on your order.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status Card */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Order Status</CardTitle>
-                <Badge className="bg-primary text-primary-foreground">
-                  {orderData.status.split('-').map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ')}
+                <Badge className={getStatusColor(orderData.status)}>
+                  {formatStatus(orderData.status)}
                 </Badge>
               </div>
             </CardHeader>
@@ -210,11 +298,25 @@ export default function OrderDetail() {
                             month: 'long',
                             day: 'numeric'
                           })
-                        : 'TBD'
+                        : 'TBD (pending quote approval)'
                       }
                     </p>
                   </div>
                 </div>
+                {orderData.quoted_price && (
+                  <div className="flex items-start gap-3">
+                    <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Quote</p>
+                      <p className="font-medium">
+                        ₱{Number(orderData.quoted_price).toLocaleString()}
+                        {orderData.quote_approved && (
+                          <Badge className="ml-2 bg-green-500 text-white">Approved</Badge>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
