@@ -40,11 +40,12 @@ interface Client {
   name: string;
   company: string | null;
   phone: string | null;
+  isAdmin: boolean;
   joinDate: string;
   totalOrders: number;
   activeOrders: number;
   totalValue: number;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'admin';
   lastOrderDate: string | null;
 }
 
@@ -76,6 +77,13 @@ export default function ClientManagement() {
 
       if (ordersError) throw ordersError;
 
+      // Fetch user roles to check for admins
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('*');
+
+      if (rolesError) throw rolesError;
+
       // Calculate 30 days ago for active status
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -99,17 +107,28 @@ export default function ClientManagement() {
         );
         const lastOrderDate = sortedOrders[0]?.submitted_date || null;
 
-        // Determine status: active if order in last 30 days
-        const hasRecentOrder = userOrders.some(order => 
-          new Date(order.submitted_date) > thirtyDaysAgo
+        // Check if user is admin
+        const isAdmin = (userRoles || []).some(
+          role => role.user_id === profile.id && role.role === 'admin'
         );
-        const status: 'active' | 'inactive' = hasRecentOrder ? 'active' : 'inactive';
+
+        // Determine status: admin > active (order in last 30 days) > inactive
+        let status: 'active' | 'inactive' | 'admin' = 'inactive';
+        if (isAdmin) {
+          status = 'admin';
+        } else {
+          const hasRecentOrder = userOrders.some(order => 
+            new Date(order.submitted_date) > thirtyDaysAgo
+          );
+          status = hasRecentOrder ? 'active' : 'inactive';
+        }
 
         return {
           id: profile.id,
           name: profile.full_name || 'Unknown',
           company: profile.company,
           phone: profile.phone,
+          isAdmin,
           joinDate: profile.created_at,
           totalOrders: userOrders.length,
           activeOrders,
@@ -131,7 +150,8 @@ export default function ClientManagement() {
   const getStatusColor = (status: string) => {
     const colors = {
       'active': 'bg-primary text-primary-foreground',
-      'inactive': 'bg-muted text-muted-foreground'
+      'inactive': 'bg-muted text-muted-foreground',
+      'admin': 'bg-destructive text-destructive-foreground'
     };
     return colors[status as keyof typeof colors] || 'bg-muted text-muted-foreground';
   };
@@ -154,6 +174,7 @@ export default function ClientManagement() {
     total: clients.length,
     active: clients.filter(c => c.status === 'active').length,
     inactive: clients.filter(c => c.status === 'inactive').length,
+    admins: clients.filter(c => c.status === 'admin').length,
     totalRevenue: clients.reduce((sum, c) => sum + c.totalValue, 0)
   };
 
@@ -207,12 +228,12 @@ export default function ClientManagement() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-muted rounded-lg">
-                  <Users className="h-6 w-6 text-muted-foreground" />
+                <div className="p-3 bg-destructive/10 rounded-lg">
+                  <Users className="h-6 w-6 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.inactive}</p>
-                  <p className="text-sm text-muted-foreground">Inactive Clients</p>
+                  <p className="text-2xl font-bold">{stats.admins}</p>
+                  <p className="text-sm text-muted-foreground">Admins</p>
                 </div>
               </div>
             </CardContent>
