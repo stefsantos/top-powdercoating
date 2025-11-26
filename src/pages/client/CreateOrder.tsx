@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Upload, X, FileText, Image as ImageIcon, CheckCircle, Palette, Sparkles, Grid3x3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ColorPickerWheel } from "@/components/ui/color-picker-wheel";
+import CoatingPreview3D from "@/components/CoatingPreview3D";
 
 const finishOptions = [
   { value: "matte", label: "Matte", description: "Non-reflective, smooth finish" },
@@ -407,7 +408,11 @@ export default function CreateOrder() {
                   <CardTitle>Preview</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="aspect-square rounded-lg transition-all duration-300" style={getPreviewStyle()} />
+                  <CoatingPreview3D
+                    finish={finish as 'matte' | 'glossy' | 'satin'}
+                    texture={texture as 'smooth' | 'textured' | 'hammered'}
+                    color={color === 'custom' ? (customColor || '#808080') : (colorOptions.find(c => c.value === color)?.hex || '#808080')}
+                  />
 
                   <div className="space-y-3">
                     <div className="flex justify-between py-2 border-b">
