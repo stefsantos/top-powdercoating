@@ -128,7 +128,7 @@ export default function OrderHistory() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-24">
+      <div className="min-h-screen bg-background pt-28">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -139,7 +139,7 @@ export default function OrderHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24">
+    <div className="min-h-screen bg-background pt-28">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Link to="/client/orders">
           <Button variant="ghost" className="mb-6">
