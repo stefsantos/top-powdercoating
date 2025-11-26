@@ -162,7 +162,8 @@ export default function AdminOrderDetail() {
         ...order,
         customization: customization || undefined,
         files: files || [],
-        profile: profile || undefined
+        profile: profile || undefined,
+        user_id: order.user_id
       });
 
       setStatus(order.status);
@@ -213,6 +214,8 @@ export default function AdminOrderDetail() {
     if (!orderData) return;
     
     setSaving(true);
+    const previousStatus = orderData.status;
+    
     try {
       // Prepare update data
       const updateData: any = {
@@ -256,6 +259,30 @@ export default function AdminOrderDetail() {
           .insert(assignments);
 
         if (insertError) throw insertError;
+      }
+
+      // Send email notification if status changed
+      if (status !== previousStatus && orderData.user_id) {
+        try {
+          const { error: notificationError } = await supabase.functions.invoke('send-order-notification', {
+            body: {
+              user_id: orderData.user_id,
+              order_id: id,
+              order_number: orderData.order_number,
+              new_status: status,
+              user_email: orderData.user_email
+            }
+          });
+          
+          if (notificationError) {
+            console.error('Failed to send email notification:', notificationError);
+          } else {
+            console.log('Email notification sent successfully');
+          }
+        } catch (emailError) {
+          console.error('Error sending email notification:', emailError);
+          // Don't fail the save if email fails
+        }
       }
 
       toast.success('Order updated successfully');

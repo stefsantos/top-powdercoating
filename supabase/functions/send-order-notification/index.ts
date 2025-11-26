@@ -115,27 +115,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     let emailToSend = user_email;
 
-    // If no email provided, try to get it from profiles table
+    // If no email provided, get it from auth.users using admin client
     if (!emailToSend) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("id", user_id)
-        .single();
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(user_id);
 
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
+      if (userError) {
+        console.error("Error fetching user:", userError);
         return new Response(
-          JSON.stringify({ error: "Could not find user email", details: profileError }),
+          JSON.stringify({ error: "Could not find user email", details: userError }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      emailToSend = profile?.email;
+      emailToSend = userData?.user?.email;
     }
 
     if (!emailToSend) {
