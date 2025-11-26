@@ -121,7 +121,7 @@ export default function OrderStatus() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-7xl pt-24">
+      <div className="container mx-auto p-6 max-w-7xl pt-28">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-start gap-4">
