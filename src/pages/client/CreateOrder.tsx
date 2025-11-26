@@ -381,6 +381,15 @@ export default function CreateOrder() {
                           onChange={setCustomColor}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Or Enter Hex Code</Label>
+                        <Input
+                          placeholder="e.g., #FF5733"
+                          value={customColor}
+                          onChange={(e) => setCustomColor(e.target.value.toUpperCase())}
+                          maxLength={7}
+                        />
+                      </div>
                     </div>
                   )}
 
