@@ -1,23 +1,23 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  ArrowLeft, 
-  Save, 
-  Calendar, 
-  User, 
-  Package, 
-  FileText, 
+import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ArrowLeft,
+  Save,
+  Calendar,
+  User,
+  Package,
+  FileText,
   Palette,
   Building,
   Mail,
@@ -29,10 +29,10 @@ import {
   Users,
   History,
   Loader2,
-  DollarSign
-} from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+  DollarSign,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface OrderData {
   id: string;
@@ -87,13 +87,31 @@ interface StatusHistoryItem {
 
 // Updated to match database enum values - includes pending_quote
 const statusSteps = [
-  { key: 'pending_quote', label: 'Pending Quote', icon: DollarSign, color: 'bg-yellow-500', description: 'Awaiting price quote' },
-  { key: 'queued', label: 'Queued', icon: Clock, color: 'bg-blue-500', description: 'Order queued for production' },
-  { key: 'sand-blasting', label: 'Sand Blasting', icon: Package, color: 'bg-orange-500', description: 'Surface preparation' },
-  { key: 'coating', label: 'Coating', icon: Package, color: 'bg-orange-500', description: 'Coating application' },
-  { key: 'curing', label: 'Curing', icon: Zap, color: 'bg-purple-500', description: 'Heat curing process' },
-  { key: 'quality-check', label: 'Quality Check', icon: Shield, color: 'bg-indigo-500', description: 'Quality assurance' },
-  { key: 'completed', label: 'Completed', icon: CheckCircle, color: 'bg-green-500', description: 'Ready for pickup' }
+  {
+    key: "pending_quote",
+    label: "Pending Quote",
+    icon: DollarSign,
+    color: "bg-yellow-500",
+    description: "Awaiting price quote",
+  },
+  { key: "queued", label: "Queued", icon: Clock, color: "bg-blue-500", description: "Order queued for production" },
+  {
+    key: "sand-blasting",
+    label: "Sand Blasting",
+    icon: Package,
+    color: "bg-orange-500",
+    description: "Surface preparation",
+  },
+  { key: "coating", label: "Coating", icon: Package, color: "bg-orange-500", description: "Coating application" },
+  { key: "curing", label: "Curing", icon: Zap, color: "bg-purple-500", description: "Heat curing process" },
+  {
+    key: "quality-check",
+    label: "Quality Check",
+    icon: Shield,
+    color: "bg-indigo-500",
+    description: "Quality assurance",
+  },
+  { key: "completed", label: "Completed", icon: CheckCircle, color: "bg-green-500", description: "Ready for pickup" },
 ];
 
 export default function AdminOrderDetail() {
@@ -105,14 +123,14 @@ export default function AdminOrderDetail() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [assignedTeamMembers, setAssignedTeamMembers] = useState<string[]>([]);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
-  
+
   // Editable fields
-  const [status, setStatus] = useState('');
-  const [priority, setPriority] = useState('');
+  const [status, setStatus] = useState("");
+  const [priority, setPriority] = useState("");
   const [progress, setProgress] = useState(0);
-  const [estimatedCompletion, setEstimatedCompletion] = useState('');
-  const [notes, setNotes] = useState('');
-  const [quotedPrice, setQuotedPrice] = useState('');
+  const [estimatedCompletion, setEstimatedCompletion] = useState("");
+  const [notes, setNotes] = useState("");
+  const [quotedPrice, setQuotedPrice] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -124,58 +142,51 @@ export default function AdminOrderDetail() {
 
   const fetchOrderDetails = async () => {
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", id).single();
 
       if (orderError) throw orderError;
 
       // Fetch customization
       const { data: customization } = await supabase
-        .from('order_customizations')
-        .select('*')
-        .eq('order_id', id)
+        .from("order_customizations")
+        .select("*")
+        .eq("order_id", id)
         .single();
 
       // Fetch files
-      const { data: files } = await supabase
-        .from('order_files')
-        .select('*')
-        .eq('order_id', id);
+      const { data: files } = await supabase.from("order_files").select("*").eq("order_id", id);
 
       // Fetch profile
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, company, phone')
-        .eq('id', order.user_id)
+        .from("profiles")
+        .select("full_name, company, phone")
+        .eq("id", order.user_id)
         .single();
 
       // Fetch assigned team members
       const { data: assignments } = await supabase
-        .from('order_team_assignments')
-        .select('team_member_id')
-        .eq('order_id', id);
+        .from("order_team_assignments")
+        .select("team_member_id")
+        .eq("order_id", id);
 
       setOrderData({
         ...order,
         customization: customization || undefined,
         files: files || [],
         profile: profile || undefined,
-        user_id: order.user_id
+        user_id: order.user_id,
       });
 
       setStatus(order.status);
       setPriority(order.priority);
       setProgress(order.progress || 0);
-      setEstimatedCompletion(order.estimated_completion ? order.estimated_completion.split('T')[0] : '');
-      setNotes(order.additional_notes || '');
-      setQuotedPrice(order.quoted_price ? order.quoted_price.toString() : '');
-      setAssignedTeamMembers(assignments?.map(a => a.team_member_id) || []);
+      setEstimatedCompletion(order.estimated_completion ? order.estimated_completion.split("T")[0] : "");
+      setNotes(order.additional_notes || "");
+      setQuotedPrice(order.quoted_price ? order.quoted_price.toString() : "");
+      setAssignedTeamMembers(assignments?.map((a) => a.team_member_id) || []);
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to load order details');
+      console.error("Error:", error);
+      toast.error("Failed to load order details");
     } finally {
       setLoading(false);
     }
@@ -183,39 +194,36 @@ export default function AdminOrderDetail() {
 
   const fetchTeamMembers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('team_members')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from("team_members").select("*").order("name");
 
       if (error) throw error;
       setTeamMembers(data || []);
     } catch (error) {
-      console.error('Error fetching team members:', error);
+      console.error("Error fetching team members:", error);
     }
   };
 
   const fetchStatusHistory = async () => {
     try {
       const { data, error } = await supabase
-        .from('order_status_history')
-        .select('*')
-        .eq('order_id', id)
-        .order('changed_at', { ascending: false });
+        .from("order_status_history")
+        .select("*")
+        .eq("order_id", id)
+        .order("changed_at", { ascending: false });
 
       if (error) throw error;
       setStatusHistory(data || []);
     } catch (error) {
-      console.error('Error fetching status history:', error);
+      console.error("Error fetching status history:", error);
     }
   };
 
   const handleSave = async () => {
     if (!orderData) return;
-    
+
     setSaving(true);
     const previousStatus = orderData.status;
-    
+
     try {
       // Prepare update data
       const updateData: any = {
@@ -224,7 +232,7 @@ export default function AdminOrderDetail() {
         progress,
         estimated_completion: estimatedCompletion || null,
         additional_notes: notes,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Add quoted_price if provided
@@ -233,30 +241,22 @@ export default function AdminOrderDetail() {
       }
 
       // Update order
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', id);
+      const { error: orderError } = await supabase.from("orders").update(updateData).eq("id", id);
 
       if (orderError) throw orderError;
 
       // Update team assignments
-      const { error: deleteError } = await supabase
-        .from('order_team_assignments')
-        .delete()
-        .eq('order_id', id);
+      const { error: deleteError } = await supabase.from("order_team_assignments").delete().eq("order_id", id);
 
       if (deleteError) throw deleteError;
 
       if (assignedTeamMembers.length > 0) {
-        const assignments = assignedTeamMembers.map(memberId => ({
+        const assignments = assignedTeamMembers.map((memberId) => ({
           order_id: id!,
-          team_member_id: memberId
+          team_member_id: memberId,
         }));
 
-        const { error: insertError } = await supabase
-          .from('order_team_assignments')
-          .insert(assignments);
+        const { error: insertError } = await supabase.from("order_team_assignments").insert(assignments);
 
         if (insertError) throw insertError;
       }
@@ -264,48 +264,46 @@ export default function AdminOrderDetail() {
       // Send email notification if status changed
       if (status !== previousStatus && orderData.user_id) {
         try {
-          const { error: notificationError } = await supabase.functions.invoke('send-order-notification', {
+          const { error: notificationError } = await supabase.functions.invoke("send-order-notification", {
             body: {
               user_id: orderData.user_id,
               order_id: id,
               order_number: orderData.order_number,
               new_status: status,
-              user_email: orderData.user_email
-            }
+              user_email: orderData.user_email,
+            },
           });
-          
+
           if (notificationError) {
-            console.error('Failed to send email notification:', notificationError);
+            console.error("Failed to send email notification:", notificationError);
           } else {
-            console.log('Email notification sent successfully');
+            console.log("Email notification sent successfully");
           }
         } catch (emailError) {
-          console.error('Error sending email notification:', emailError);
+          console.error("Error sending email notification:", emailError);
           // Don't fail the save if email fails
         }
       }
 
-      toast.success('Order updated successfully');
+      toast.success("Order updated successfully");
       await fetchOrderDetails();
       await fetchStatusHistory();
     } catch (error) {
-      console.error('Error updating order:', error);
-      toast.error('Failed to update order');
+      console.error("Error updating order:", error);
+      toast.error("Failed to update order");
     } finally {
       setSaving(false);
     }
   };
 
   const toggleTeamMember = (memberId: string) => {
-    setAssignedTeamMembers(prev => 
-      prev.includes(memberId) 
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
+    setAssignedTeamMembers((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId],
     );
   };
 
   const getStatusIndex = (statusKey: string) => {
-    return statusSteps.findIndex(step => step.key === statusKey);
+    return statusSteps.findIndex((step) => step.key === statusKey);
   };
 
   const isStatusActive = (stepIndex: number) => {
@@ -315,25 +313,38 @@ export default function AdminOrderDetail() {
 
   const getStatusBadgeColor = (statusKey: string) => {
     switch (statusKey) {
-      case 'completed': return 'bg-green-500 text-white';
-      case 'quality-check': return 'bg-indigo-500 text-white';
-      case 'curing': return 'bg-purple-500 text-white';
-      case 'coating':
-      case 'sand-blasting': return 'bg-orange-500 text-white';
-      case 'queued': return 'bg-blue-500 text-white';
-      case 'pending_quote': return 'bg-yellow-500 text-white';
-      case 'delayed': return 'bg-red-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case "completed":
+        return "bg-green-500 text-white";
+      case "quality-check":
+        return "bg-indigo-500 text-white";
+      case "curing":
+        return "bg-purple-500 text-white";
+      case "coating":
+      case "sand-blasting":
+        return "bg-orange-500 text-white";
+      case "queued":
+        return "bg-blue-500 text-white";
+      case "pending_quote":
+        return "bg-yellow-500 text-white";
+      case "delayed":
+        return "bg-red-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
     }
   };
 
   const getPriorityColor = (priorityKey: string) => {
     switch (priorityKey) {
-      case 'urgent': return 'bg-red-500 text-white';
-      case 'high': return 'bg-orange-500 text-white';
-      case 'medium': return 'bg-yellow-500 text-white';
-      case 'low': return 'bg-green-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case "urgent":
+        return "bg-red-500 text-white";
+      case "high":
+        return "bg-orange-500 text-white";
+      case "medium":
+        return "bg-yellow-500 text-white";
+      case "low":
+        return "bg-green-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
     }
   };
 
@@ -355,7 +366,7 @@ export default function AdminOrderDetail() {
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4">Order not found</h2>
-            <Button onClick={() => navigate('/admin/orders')}>
+            <Button onClick={() => navigate("/admin/orders")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Orders
             </Button>
           </div>
@@ -371,7 +382,7 @@ export default function AdminOrderDetail() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => navigate('/admin/orders')}>
+              <Button variant="ghost" onClick={() => navigate("/admin/orders")}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
               <div>
@@ -386,7 +397,7 @@ export default function AdminOrderDetail() {
           </div>
 
           {/* Quote Section - Show prominently if pending quote */}
-          {(status === 'pending_quote' || !orderData.quote_approved) && (
+          {(status === "pending_quote" || !orderData.quote_approved) && (
             <Card className="border-yellow-500 border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-yellow-600">
@@ -422,8 +433,8 @@ export default function AdminOrderDetail() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Set a quote price and save. The client will be notified and can approve the quote from their dashboard.
-                  Once approved, you can move the order to "Queued" status to begin production.
+                  Set a quote price and save. The client will be notified and can approve the quote from their
+                  dashboard. Once approved, you can move the order to "Queued" status to begin production.
                 </p>
               </CardContent>
             </Card>
@@ -438,15 +449,11 @@ export default function AdminOrderDetail() {
               {/* Current Status & Priority */}
               <div className="flex items-center gap-4">
                 <Badge className={getStatusBadgeColor(status)}>
-                  {statusSteps.find(s => s.key === status)?.label || status}
+                  {statusSteps.find((s) => s.key === status)?.label || status}
                 </Badge>
-                <Badge className={getPriorityColor(priority)}>
-                  {priority.toUpperCase()} Priority
-                </Badge>
+                <Badge className={getPriorityColor(priority)}>{priority.toUpperCase()} Priority</Badge>
                 {orderData.quoted_price && (
-                  <Badge variant="outline">
-                    Quote: ₱{Number(orderData.quoted_price).toLocaleString()}
-                  </Badge>
+                  <Badge variant="outline">Quote: ₱{Number(orderData.quoted_price).toLocaleString()}</Badge>
                 )}
               </div>
 
@@ -456,7 +463,7 @@ export default function AdminOrderDetail() {
                   <Label>Progress</Label>
                   <span className="text-sm font-bold">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-3" />
+                <Progress value={progress} className="h-2" />
               </div>
 
               {/* Status Timeline */}
@@ -470,12 +477,14 @@ export default function AdminOrderDetail() {
                     <div key={step.key} className="flex flex-col items-center min-w-[80px]">
                       <div
                         className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${
-                          isActive ? step.color : 'bg-muted'
-                        } ${isCurrent ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                          isActive ? step.color : "bg-muted"
+                        } ${isCurrent ? "ring-4 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                       >
-                        <Icon className={`h-6 w-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                        <Icon className={`h-6 w-6 ${isActive ? "text-white" : "text-muted-foreground"}`} />
                       </div>
-                      <span className={`mt-2 text-xs font-medium text-center ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      <span
+                        className={`mt-2 text-xs font-medium text-center ${isActive ? "text-foreground" : "text-muted-foreground"}`}
+                      >
                         {step.label}
                       </span>
                     </div>
@@ -492,8 +501,10 @@ export default function AdminOrderDetail() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {statusSteps.map(step => (
-                        <SelectItem key={step.key} value={step.key}>{step.label}</SelectItem>
+                      {statusSteps.map((step) => (
+                        <SelectItem key={step.key} value={step.key}>
+                          {step.label}
+                        </SelectItem>
                       ))}
                       <SelectItem value="delayed">Delayed</SelectItem>
                     </SelectContent>
@@ -559,7 +570,7 @@ export default function AdminOrderDetail() {
                       <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-sm text-muted-foreground">Full Name</p>
-                        <p className="font-medium">{orderData.profile?.full_name || 'N/A'}</p>
+                        <p className="font-medium">{orderData.profile?.full_name || "N/A"}</p>
                       </div>
                     </div>
 
@@ -567,7 +578,7 @@ export default function AdminOrderDetail() {
                       <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-sm text-muted-foreground">Company</p>
-                        <p className="font-medium">{orderData.profile?.company || 'N/A'}</p>
+                        <p className="font-medium">{orderData.profile?.company || "N/A"}</p>
                       </div>
                     </div>
 
@@ -575,7 +586,7 @@ export default function AdminOrderDetail() {
                       <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-medium">{orderData.user_email || 'N/A'}</p>
+                        <p className="font-medium">{orderData.user_email || "N/A"}</p>
                       </div>
                     </div>
 
@@ -583,7 +594,7 @@ export default function AdminOrderDetail() {
                       <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-sm text-muted-foreground">Phone</p>
-                        <p className="font-medium">{orderData.profile?.phone || 'N/A'}</p>
+                        <p className="font-medium">{orderData.profile?.phone || "N/A"}</p>
                       </div>
                     </div>
                   </div>
@@ -604,7 +615,7 @@ export default function AdminOrderDetail() {
                       <p className="text-sm text-muted-foreground">Project Name</p>
                       <p className="font-medium">{orderData.project_name}</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-sm text-muted-foreground">Quantity</p>
                       <p className="font-medium">{orderData.quantity} items</p>
@@ -617,7 +628,7 @@ export default function AdminOrderDetail() {
 
                     <div>
                       <p className="text-sm text-muted-foreground">Dimensions</p>
-                      <p className="font-medium">{orderData.dimensions || 'Not specified'}</p>
+                      <p className="font-medium">{orderData.dimensions || "Not specified"}</p>
                     </div>
                   </div>
 
@@ -645,7 +656,7 @@ export default function AdminOrderDetail() {
                         <p className="text-sm text-muted-foreground">Finish Type</p>
                         <p className="font-medium capitalize">{orderData.customization.finish}</p>
                       </div>
-                      
+
                       <div>
                         <p className="text-sm text-muted-foreground">Texture</p>
                         <p className="font-medium capitalize">{orderData.customization.texture}</p>
@@ -654,7 +665,7 @@ export default function AdminOrderDetail() {
                       <div>
                         <p className="text-sm text-muted-foreground">Color</p>
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className="h-6 w-6 rounded border"
                             style={{ backgroundColor: orderData.customization.color }}
                           />
@@ -693,9 +704,7 @@ export default function AdminOrderDetail() {
                             <FileText className="h-5 w-5 text-muted-foreground" />
                             <div>
                               <p className="font-medium">{file.file_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {(file.file_size / 1024).toFixed(2)} KB
-                              </p>
+                              <p className="text-sm text-muted-foreground">{(file.file_size / 1024).toFixed(2)} KB</p>
                             </div>
                           </div>
                           <Button variant="outline" size="sm" asChild>
@@ -739,7 +748,7 @@ export default function AdminOrderDetail() {
                 <CardContent>
                   <ScrollArea className="h-[300px]">
                     <div className="space-y-3">
-                      {teamMembers.map(member => (
+                      {teamMembers.map((member) => (
                         <div key={member.id} className="flex items-start gap-3 p-2 rounded hover:bg-accent">
                           <Checkbox
                             id={member.id}
@@ -750,7 +759,9 @@ export default function AdminOrderDetail() {
                             <label htmlFor={member.id} className="text-sm font-medium cursor-pointer">
                               {member.name}
                             </label>
-                            <p className="text-xs text-muted-foreground">{member.role} • {member.department}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {member.role} • {member.department}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -771,25 +782,21 @@ export default function AdminOrderDetail() {
                   <ScrollArea className="h-[300px]">
                     <div className="space-y-3">
                       {statusHistory.length > 0 ? (
-                        statusHistory.map(item => (
+                        statusHistory.map((item) => (
                           <div key={item.id} className="border-l-2 border-primary pl-4 pb-4">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="capitalize">
-                                {item.status.replace('-', ' ').replace('_', ' ')}
+                                {item.status.replace("-", " ").replace("_", " ")}
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {new Date(item.changed_at).toLocaleString()}
                             </p>
-                            {item.notes && (
-                              <p className="text-sm mt-1">{item.notes}</p>
-                            )}
+                            {item.notes && <p className="text-sm mt-1">{item.notes}</p>}
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No status changes yet
-                        </p>
+                        <p className="text-sm text-muted-foreground text-center py-4">No status changes yet</p>
                       )}
                     </div>
                   </ScrollArea>
