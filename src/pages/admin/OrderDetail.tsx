@@ -463,7 +463,7 @@ export default function AdminOrderDetail() {
                   <Label>Progress</Label>
                   <span className="text-sm font-bold">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-2" />
+                <Progress value={progress} className="h-5" />
               </div>
 
               {/* Status Timeline */}
