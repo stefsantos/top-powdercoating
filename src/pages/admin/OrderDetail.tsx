@@ -467,7 +467,7 @@ export default function AdminOrderDetail() {
               </div>
 
               {/* Status Timeline */}
-              <div className="flex items-center justify-between px-5 overflow-x-auto">
+              <div className="flex items-center justify-between px-4 pd-4 overflow-x-auto">
                 {statusSteps.map((step, index) => {
                   const Icon = step.icon;
                   const isActive = isStatusActive(index);
