@@ -213,6 +213,9 @@ export type Database = {
           progress: number | null
           project_name: string
           quantity: number
+          quote_approved: boolean | null
+          quote_approved_at: string | null
+          quoted_price: number | null
           status: Database["public"]["Enums"]["order_status"]
           submitted_date: string
           updated_at: string
@@ -231,6 +234,9 @@ export type Database = {
           progress?: number | null
           project_name: string
           quantity: number
+          quote_approved?: boolean | null
+          quote_approved_at?: string | null
+          quoted_price?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           submitted_date?: string
           updated_at?: string
@@ -249,6 +255,9 @@ export type Database = {
           progress?: number | null
           project_name?: string
           quantity?: number
+          quote_approved?: boolean | null
+          quote_approved_at?: string | null
+          quoted_price?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           submitted_date?: string
           updated_at?: string
@@ -359,6 +368,7 @@ export type Database = {
       finish_type: "matte" | "glossy" | "satin"
       order_priority: "low" | "medium" | "high" | "urgent"
       order_status:
+        | "pending_quote"
         | "queued"
         | "sand-blasting"
         | "coating"
@@ -498,6 +508,7 @@ export const Constants = {
       finish_type: ["matte", "glossy", "satin"],
       order_priority: ["low", "medium", "high", "urgent"],
       order_status: [
+        "pending_quote",
         "queued",
         "sand-blasting",
         "coating",
