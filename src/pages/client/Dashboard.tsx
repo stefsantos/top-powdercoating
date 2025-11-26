@@ -284,14 +284,6 @@ export default function ClientDashboard() {
               <p className="text-sm text-muted-foreground">View order status and history</p>
             </CardContent>
           </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-6 h-6 text-primary-foreground" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
