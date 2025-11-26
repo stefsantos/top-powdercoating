@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,105 +24,80 @@ import {
   Eye, 
   RotateCcw, 
   Download,
-  ArrowLeft
+  ArrowLeft,
+  Loader2,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HistoryOrder {
   id: string;
-  orderId: string;
+  order_number: string;
   description: string;
-  status: 'completed' | 'cancelled';
-  submittedDate: string;
-  completionDate: string;
-  specifications: {
-    finish: string;
-    color: string;
-    texture: string;
-    quantity: string;
-  };
+  status: string;
+  submitted_date: string;
+  completed_date: string | null;
+  quantity: number;
+  quoted_price: number | null;
 }
 
-const mockOrders: HistoryOrder[] = [
-  {
-    id: '1',
-    orderId: 'ORD-2024-089',
-    description: 'Steel Gates - Glossy White',
-    status: 'completed',
-    submittedDate: '2024-12-15',
-    completionDate: '2024-12-22',
-    specifications: {
-      finish: 'Glossy',
-      color: 'White',
-      texture: 'Smooth',
-      quantity: '2 pieces'
-    }
-  },
-  {
-    id: '2',
-    orderId: 'ORD-2024-078',
-    description: 'Aluminum Railings - Matte Black',
-    status: 'completed',
-    submittedDate: '2024-11-20',
-    completionDate: '2024-11-28',
-    specifications: {
-      finish: 'Matte',
-      color: 'Black',
-      texture: 'Textured',
-      quantity: '15 pieces'
-    }
-  },
-  {
-    id: '3',
-    orderId: 'ORD-2024-065',
-    description: 'Metal Frames - Satin Gray',
-    status: 'completed',
-    submittedDate: '2024-10-10',
-    completionDate: '2024-10-18',
-    specifications: {
-      finish: 'Satin',
-      color: 'Gray',
-      texture: 'Smooth',
-      quantity: '8 pieces'
-    }
-  },
-  {
-    id: '4',
-    orderId: 'ORD-2024-052',
-    description: 'Window Frames - Matte Blue',
-    status: 'cancelled',
-    submittedDate: '2024-09-05',
-    completionDate: '2024-09-06',
-    specifications: {
-      finish: 'Matte',
-      color: 'Blue',
-      texture: 'Smooth',
-      quantity: '10 pieces'
-    }
-  }
-];
-
 export default function OrderHistory() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [filteredOrders, setFilteredOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState<HistoryOrder[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<HistoryOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    filterOrders(searchQuery, statusFilter);
+  }, [orders, searchQuery, statusFilter]);
+
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in to view order history');
+        navigate('/login');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['completed', 'delayed'])
+        .order('completed_date', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('Failed to load order history');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    filterOrders(query, statusFilter);
   };
 
   const handleStatusFilter = (status: string) => {
     setStatusFilter(status);
-    filterOrders(searchQuery, status);
   };
 
   const filterOrders = (query: string, status: string) => {
-    let filtered = mockOrders;
+    let filtered = orders;
 
     if (query) {
       filtered = filtered.filter(order => 
-        order.orderId.toLowerCase().includes(query.toLowerCase()) ||
+        order.order_number.toLowerCase().includes(query.toLowerCase()) ||
         order.description.toLowerCase().includes(query.toLowerCase())
       );
     }
@@ -136,18 +111,35 @@ export default function OrderHistory() {
 
   const handleReorder = (order: HistoryOrder) => {
     toast.success('Redirecting to order creation...', {
-      description: `Specifications from ${order.orderId} will be pre-filled`
+      description: `Create a new order based on ${order.order_number}`
     });
+    navigate('/client/create-order');
   };
 
   const handleDownloadInvoice = (order: HistoryOrder) => {
-    toast.success('Downloading invoice...', {
-      description: `Invoice for ${order.orderId}`
+    toast.info('Invoice download coming soon', {
+      description: `Invoice for ${order.order_number}`
     });
   };
 
+  const getStatusBadgeVariant = (status: string) => {
+    return status === 'completed' ? 'default' : 'destructive';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pt-24">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background pt-20">
+    <div className="min-h-screen bg-background pt-24">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Link to="/client/orders">
           <Button variant="ghost" className="mb-6">
@@ -182,7 +174,7 @@ export default function OrderHistory() {
                   <SelectContent>
                     <SelectItem value="all">All Orders</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="delayed">Delayed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -191,7 +183,10 @@ export default function OrderHistory() {
           <CardContent>
             {filteredOrders.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No orders found</p>
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {orders.length === 0 ? 'No completed orders yet' : 'No orders found'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -209,35 +204,39 @@ export default function OrderHistory() {
                   <TableBody>
                     {filteredOrders.map((order) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.orderId}</TableCell>
+                        <TableCell className="font-medium">{order.order_number}</TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{order.description}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {order.specifications.finish} {order.specifications.color} • {order.specifications.quantity}
+                              {order.quantity} items
+                              {order.quoted_price && ` • ₱${Number(order.quoted_price).toLocaleString()}`}
                             </p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {new Date(order.submittedDate).toLocaleDateString()}
+                          {new Date(order.submitted_date).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {new Date(order.completionDate).toLocaleDateString()}
+                          {order.completed_date 
+                            ? new Date(order.completed_date).toLocaleDateString()
+                            : '-'
+                          }
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant={order.status === 'completed' ? 'default' : 'destructive'}
-                          >
+                          <Badge variant={getStatusBadgeVariant(order.status)}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
-                            <Link to={`/client/orders/${order.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => navigate(`/client/orders/${order.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             {order.status === 'completed' && (
                               <>
                                 <Button 

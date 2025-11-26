@@ -18,12 +18,15 @@ interface Order {
   submitted_date: string;
 }
 
+// Must match database enum values exactly
 const statusSteps = [
-  { key: 'received', label: 'Received', icon: Clock },
-  { key: 'in_preparation', label: 'Preparation', icon: Zap },
-  { key: 'coating_in_progress', label: 'Coating', icon: Droplets },
-  { key: 'quality_check', label: 'Quality Check', icon: Shield },
-  { key: 'ready_for_pickup', label: 'Ready', icon: CheckCircle }
+  { key: 'pending_quote', label: 'Pending Quote', icon: Clock },
+  { key: 'queued', label: 'Queued', icon: Clock },
+  { key: 'sand-blasting', label: 'Sand Blasting', icon: Zap },
+  { key: 'coating', label: 'Coating', icon: Droplets },
+  { key: 'curing', label: 'Curing', icon: Zap },
+  { key: 'quality-check', label: 'Quality Check', icon: Shield },
+  { key: 'completed', label: 'Completed', icon: CheckCircle }
 ];
 
 export default function Orders() {
@@ -111,7 +114,7 @@ export default function Orders() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20">
+    <div className="min-h-screen bg-background pt-24">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex justify-between items-center mb-8">
           <div>
