@@ -3,13 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { ScrollArea } from './ui/scroll-area';
 import { 
   Package, 
   Clock, 
   AlertTriangle, 
-  TrendingUp, 
   Users, 
   Calendar,
   DollarSign,
@@ -31,11 +29,14 @@ interface Order {
   estimated_completion: string | null;
   description: string;
   project_name: string;
+  quoted_price: number | null;
+  quote_approved: boolean | null;
 }
 
 export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,14 +45,15 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch all orders for stats
+      const { data: allData, error: allError } = await supabase
         .from('orders')
         .select('*')
-        .order('submitted_date', { ascending: false })
-        .limit(4);
+        .order('submitted_date', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (allError) throw allError;
+      setAllOrders(allData || []);
+      setOrders((allData || []).slice(0, 4));
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -59,23 +61,39 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
     }
   };
 
-  const totalOrders = orders.length;
-  const ongoingOrders = orders.filter(o => ['in_preparation', 'coating_in_progress', 'quality_check'].includes(o.status)).length;
-  const delayedOrders = 0; // TODO: Calculate based on estimated_completion
+  const totalOrders = allOrders.length;
+  const ongoingOrders = allOrders.filter(o => 
+    ['queued', 'sand-blasting', 'coating', 'curing', 'quality-check'].includes(o.status)
+  ).length;
+  const delayedOrders = allOrders.filter(o => o.status === 'delayed').length;
+  const pendingQuoteOrders = allOrders.filter(o => o.status === 'pending_quote').length;
+  
+  // Calculate real revenue from quoted_price of approved/completed orders
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  
+  const monthlyRevenue = allOrders
+    .filter(o => 
+      o.quote_approved && 
+      o.quoted_price && 
+      new Date(o.submitted_date) >= monthStart
+    )
+    .reduce((sum, o) => sum + (Number(o.quoted_price) || 0), 0);
 
   const kpis = [
     {
       title: 'Total Orders',
       value: totalOrders.toString(),
-      change: '+12%',
+      change: `${pendingQuoteOrders} pending`,
       trend: 'up',
       icon: Package,
-      description: 'This month',
+      description: 'All time',
     },
     {
       title: 'Ongoing Projects',
       value: ongoingOrders.toString(),
-      change: '+5',
+      change: 'In production',
       trend: 'up',
       icon: Clock,
       description: 'Currently active',
@@ -83,47 +101,62 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
     {
       title: 'Delayed Projects',
       value: delayedOrders.toString(),
-      change: '-2',
-      trend: 'down',
+      change: delayedOrders > 0 ? 'Needs attention' : 'All on track',
+      trend: delayedOrders > 0 ? 'down' : 'up',
       icon: AlertTriangle,
       description: 'Needs attention',
     },
     {
       title: 'Revenue (MTD)',
-      value: '₱2.4M',
-      change: '+18%',
+      value: monthlyRevenue >= 1000000 
+        ? `₱${(monthlyRevenue / 1000000).toFixed(1)}M`
+        : monthlyRevenue >= 1000
+        ? `₱${(monthlyRevenue / 1000).toFixed(1)}K`
+        : `₱${monthlyRevenue.toLocaleString()}`,
+      change: 'From approved quotes',
       trend: 'up',
       icon: DollarSign,
       description: 'Month to date',
     },
   ];
 
+  // Production stats using correct database enum values
   const productionStats = [
-    { stage: 'Queued', count: orders.filter(o => o.status === 'received').length, color: 'bg-blue-500' },
-    { stage: 'In Preparation', count: orders.filter(o => o.status === 'in_preparation').length, color: 'bg-orange-500' },
-    { stage: 'Coating', count: orders.filter(o => o.status === 'coating_in_progress').length, color: 'bg-[#fb7616]' },
-    { stage: 'Quality Check', count: orders.filter(o => o.status === 'quality_check').length, color: 'bg-indigo-500' },
-    { stage: 'Completed', count: orders.filter(o => o.status === 'completed').length, color: 'bg-green-500' },
+    { stage: 'Pending Quote', count: allOrders.filter(o => o.status === 'pending_quote').length, color: 'bg-yellow-500' },
+    { stage: 'Queued', count: allOrders.filter(o => o.status === 'queued').length, color: 'bg-blue-500' },
+    { stage: 'Sand Blasting', count: allOrders.filter(o => o.status === 'sand-blasting').length, color: 'bg-orange-500' },
+    { stage: 'Coating', count: allOrders.filter(o => o.status === 'coating').length, color: 'bg-primary' },
+    { stage: 'Curing', count: allOrders.filter(o => o.status === 'curing').length, color: 'bg-purple-500' },
+    { stage: 'Quality Check', count: allOrders.filter(o => o.status === 'quality-check').length, color: 'bg-indigo-500' },
+    { stage: 'Completed', count: allOrders.filter(o => o.status === 'completed').length, color: 'bg-green-500' },
   ];
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      'received': 'bg-blue-100 text-blue-800',
-      'in_preparation': 'bg-orange-100 text-orange-800',
-      'coating_in_progress': 'bg-[#fb7616] text-white',
-      'quality_check': 'bg-indigo-100 text-indigo-800',
-      'ready_for_pickup': 'bg-purple-100 text-purple-800',
-      'completed': 'bg-green-100 text-green-800',
+      'pending_quote': 'bg-yellow-500 text-white',
+      'queued': 'bg-blue-500 text-white',
+      'sand-blasting': 'bg-orange-500 text-white',
+      'coating': 'bg-primary text-primary-foreground',
+      'curing': 'bg-purple-500 text-white',
+      'quality-check': 'bg-indigo-500 text-white',
+      'completed': 'bg-green-500 text-white',
+      'delayed': 'bg-red-500 text-white',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const formatStatus = (status: string) => {
+    return status.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ').replace('_', ' ');
+  };
+
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      'urgent': 'bg-red-100 text-red-800',
-      'high': 'bg-red-100 text-red-800',
-      'medium': 'bg-yellow-100 text-yellow-800',
-      'low': 'bg-green-100 text-green-800',
+      'urgent': 'bg-red-500 text-white',
+      'high': 'bg-orange-500 text-white',
+      'medium': 'bg-yellow-500 text-white',
+      'low': 'bg-green-500 text-white',
     };
     return colors[priority] || 'bg-gray-100 text-gray-800';
   };
@@ -200,7 +233,7 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
                           {order.priority}
                         </Badge>
                         <Badge className={getStatusColor(order.status)}>
-                          {order.status.replace('_', ' ')}
+                          {formatStatus(order.status)}
                         </Badge>
                       </div>
                     </div>

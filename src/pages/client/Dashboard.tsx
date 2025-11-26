@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Calendar, Clock, Package, Plus, FileText, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Package, Plus, FileText, Loader2, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,14 +16,18 @@ interface Order {
   estimated_completion: string | null;
   submitted_date: string;
   quantity: number;
+  quoted_price: number | null;
+  quote_approved: boolean | null;
 }
 
+// Must match database enum values exactly
 const statusSteps = [
-  { key: 'received', label: 'Received' },
-  { key: 'in_preparation', label: 'Preparation' },
-  { key: 'coating_in_progress', label: 'Coating' },
-  { key: 'quality_check', label: 'Quality Check' },
-  { key: 'ready_for_pickup', label: 'Ready' },
+  { key: 'pending_quote', label: 'Pending Quote' },
+  { key: 'queued', label: 'Queued' },
+  { key: 'sand-blasting', label: 'Sand Blasting' },
+  { key: 'coating', label: 'Coating' },
+  { key: 'curing', label: 'Curing' },
+  { key: 'quality-check', label: 'Quality Check' },
   { key: 'completed', label: 'Completed' }
 ];
 
@@ -80,28 +84,35 @@ export default function ClientDashboard() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      'received': 'bg-muted text-muted-foreground',
-      'in_preparation': 'bg-accent text-accent-foreground',
-      'coating_in_progress': 'bg-primary text-primary-foreground',
-      'quality_check': 'bg-secondary text-secondary-foreground',
-      'ready_for_pickup': 'bg-primary text-primary-foreground',
-      'completed': 'bg-primary text-primary-foreground'
+      'pending_quote': 'bg-yellow-500 text-white',
+      'queued': 'bg-blue-500 text-white',
+      'sand-blasting': 'bg-orange-500 text-white',
+      'coating': 'bg-primary text-primary-foreground',
+      'curing': 'bg-purple-500 text-white',
+      'quality-check': 'bg-indigo-500 text-white',
+      'completed': 'bg-green-500 text-white',
+      'delayed': 'bg-red-500 text-white'
     };
     return colors[status] || 'bg-muted';
   };
 
   const formatStatus = (status: string) => {
     const step = statusSteps.find(s => s.key === status);
-    return step ? step.label : status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    if (step) return step.label;
+    if (status === 'delayed') return 'Delayed';
+    return status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const calculateProgress = (status: string) => {
+    if (status === 'delayed') return 0;
     const index = statusSteps.findIndex(step => step.key === status);
+    if (index === -1) return 0;
     return ((index + 1) / statusSteps.length) * 100;
   };
 
-  const activeOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+  const activeOrders = orders.filter(o => !['completed', 'delayed'].includes(o.status));
   const completedOrders = orders.filter(o => o.status === 'completed');
+  const pendingQuoteOrders = orders.filter(o => o.status === 'pending_quote' || (o.quoted_price && !o.quote_approved));
   
   const avgTurnaround = completedOrders.length > 0
     ? Math.round(completedOrders.reduce((acc, order) => {
@@ -115,7 +126,7 @@ export default function ClientDashboard() {
   const stats = [
     { label: 'Active Orders', value: activeOrders.length.toString(), icon: Package, color: 'text-primary' },
     { label: 'Completed', value: completedOrders.length.toString(), icon: FileText, color: 'text-success' },
-    { label: 'Avg. Turnaround', value: avgTurnaround > 0 ? `${avgTurnaround} days` : 'N/A', icon: Clock, color: 'text-accent' },
+    { label: 'Pending Quotes', value: pendingQuoteOrders.length.toString(), icon: DollarSign, color: 'text-yellow-500' },
   ];
 
   if (loading) {
@@ -196,6 +207,9 @@ export default function ClientDashboard() {
                       <div className="flex-1">
                         <h3 className="font-semibold text-foreground">{order.order_number}</h3>
                         <p className="text-sm text-muted-foreground mt-1">{order.description}</p>
+                        {order.status === 'pending_quote' && order.quoted_price && !order.quote_approved && (
+                          <Badge className="mt-2 bg-yellow-500 text-white">Quote Ready - ₱{Number(order.quoted_price).toLocaleString()}</Badge>
+                        )}
                       </div>
                       <Badge variant="outline" className={getStatusColor(order.status)}>
                         {formatStatus(order.status)}

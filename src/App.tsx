@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
+import { AuthGuard } from "@/components/AuthGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import Home from "./pages/Home";
@@ -58,106 +59,106 @@ const AppContent = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       
-      {/* Client routes */}
+      {/* Client routes - Protected */}
       <Route 
         path="/client/dashboard" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <ClientDashboard />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/client/orders" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <Orders />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/client/create-order" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <CreateOrder />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/client/order-status" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <OrderStatus />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/client/orders/history" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <OrderHistory />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/client/orders/:id" 
         element={
-          <>
+          <AuthGuard>
             <Navigation isAdmin={false} onLogout={handleLogout} />
             <OrderDetail />
-          </>
+          </AuthGuard>
         } 
       />
       
-      {/* Admin routes */}
+      {/* Admin routes - Protected with admin role check */}
       <Route 
         path="/admin/dashboard" 
         element={
-          <>
+          <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <AdminDashboard />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/admin/orders" 
         element={
-          <>
+          <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <OrderManagement />
-          </>
+          </AuthGuard>
         } 
       />
       <Route 
         path="/admin/orders/:id" 
         element={
-          <>
+          <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <AdminOrderDetail />
-          </>
+          </AuthGuard>
         } 
       />
       <Route
         path="/admin/clients" 
         element={
-          <>
+          <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <ClientManagement />
-          </>
+          </AuthGuard>
         } 
       />
       <Route
         path="/admin/team" 
         element={
-          <>
+          <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <TeamManagement />
-          </>
+          </AuthGuard>
         } 
       />
       

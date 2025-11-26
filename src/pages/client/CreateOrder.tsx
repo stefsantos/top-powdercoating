@@ -190,7 +190,7 @@ export default function CreateOrder() {
       
       if (orderNumberError) throw orderNumberError;
 
-      // Create order
+      // Create order with status 'pending_quote' - no estimated completion yet
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -201,7 +201,8 @@ export default function CreateOrder() {
           quantity: quantityNum,
           dimensions: dimensions.trim() || null,
           additional_notes: additionalNotes.trim() || null,
-          estimated_completion: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 2 weeks from now
+          status: 'pending_quote' as any // Start with pending_quote status
+          // estimated_completion will be set by admin after quote approval
         })
         .select()
         .single();
@@ -238,7 +239,7 @@ export default function CreateOrder() {
       }
 
       toast.success('Order submitted successfully!', {
-        description: `Order ${orderNumberData} has been created and is now being processed`
+        description: `Order ${orderNumberData} has been created. You will receive a quote shortly.`
       });
       
       setTimeout(() => {
@@ -467,175 +468,201 @@ export default function CreateOrder() {
             ← Back to Customization
           </Button>
           <h1 className="text-4xl font-bold text-foreground mb-2">Order Details</h1>
-          <p className="text-muted-foreground">Provide information about your items</p>
+          <p className="text-muted-foreground">Provide information about your project</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="projectName">Project Name *</Label>
-              <Input
-                id="projectName"
-                placeholder="e.g., Office Building Window Frames"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                maxLength={100}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {projectName.length}/100 characters
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Item Description *</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe the items to be powder coated..."
-                value={itemDescription}
-                onChange={(e) => setItemDescription(e.target.value)}
-                rows={4}
-                maxLength={1000}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {itemDescription.length}/1000 characters (minimum 10)
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity *</Label>
-                <Input
-                  id="quantity"
-                  placeholder="e.g., 12"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  type="number"
-                  min="1"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dimensions">Dimensions</Label>
-                <Input
-                  id="dimensions"
-                  placeholder="e.g., 2m x 1.5m"
-                  value={dimensions}
-                  onChange={(e) => setDimensions(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any special instructions or requirements..."
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                rows={3}
-                maxLength={1000}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {additionalNotes.length}/1000 characters
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <Label>Upload Files (Optional)</Label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
-              >
-                <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm font-medium mb-1">Click to upload files</p>
-                <p className="text-xs text-muted-foreground">
-                  PDF, JPG, PNG, or DWG files (max 10MB each)
-                </p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,.dwg"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-
-              {uploadedFiles.length > 0 && (
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Project Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(file.size / 1024).toFixed(2)} KB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                  <Label htmlFor="projectName">Project Name *</Label>
+                  <Input
+                    id="projectName"
+                    placeholder="e.g., Office Chair Frames"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    maxLength={100}
+                  />
                 </div>
-              )}
-            </div>
 
-            <Separator />
-
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Order Summary</h4>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground mb-1">Finish</p>
-                  <p className="font-medium">{finishOptions.find(f => f.value === finish)?.label}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Texture</p>
-                  <p className="font-medium">{textureOptions.find(t => t.value === texture)?.label}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Color</p>
-                  <p className="font-medium">
-                    {color === 'custom' ? customColor : colorOptions.find(c => c.value === color)?.label}
+                <div className="space-y-2">
+                  <Label htmlFor="itemDescription">Item Description *</Label>
+                  <Textarea
+                    id="itemDescription"
+                    placeholder="Describe the items to be powder coated..."
+                    value={itemDescription}
+                    onChange={(e) => setItemDescription(e.target.value)}
+                    rows={4}
+                    maxLength={1000}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {itemDescription.length}/1000 characters (minimum 10)
                   </p>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex gap-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setStep('customize')}
-                disabled={isSubmitting}
-              >
-                Back to Customization
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleSubmitOrder}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Order'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Quantity *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      min="1"
+                      placeholder="Number of items"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="dimensions">Dimensions (optional)</Label>
+                    <Input
+                      id="dimensions"
+                      placeholder="e.g., 50cm x 30cm x 10cm"
+                      value={dimensions}
+                      onChange={(e) => setDimensions(e.target.value)}
+                      maxLength={100}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="additionalNotes">Additional Notes (optional)</Label>
+                  <Textarea
+                    id="additionalNotes"
+                    placeholder="Any special instructions or requirements..."
+                    value={additionalNotes}
+                    onChange={(e) => setAdditionalNotes(e.target.value)}
+                    rows={3}
+                    maxLength={1000}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* File Upload */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Reference Files (optional)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    PDF, JPG, PNG, DWG (max 10MB each)
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.dwg"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {file.name.toLowerCase().endsWith('.pdf') ? (
+                            <FileText className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <ImageIcon className="h-5 w-5 text-blue-500" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(file.size / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Order Summary */}
+          <div className="lg:sticky lg:top-8 lg:self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Finish</span>
+                    <Badge variant="secondary">{finishOptions.find(f => f.value === finish)?.label}</Badge>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Texture</span>
+                    <Badge variant="secondary">{textureOptions.find(t => t.value === texture)?.label}</Badge>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Color</span>
+                    <Badge variant="secondary">
+                      {color === 'custom' ? customColor || 'Custom' : colorOptions.find(c => c.value === color)?.label}
+                    </Badge>
+                  </div>
+                  {projectName && (
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Project</span>
+                      <span className="text-sm font-medium truncate max-w-[150px]">{projectName}</span>
+                    </div>
+                  )}
+                  {quantity && (
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Quantity</span>
+                      <span className="text-sm font-medium">{quantity} items</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Files</span>
+                    <span className="text-sm font-medium">{uploadedFiles.length} attached</span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="p-3 bg-yellow-500/10 rounded-lg">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                    After submission, you will receive a quote from our team. Production will begin once you approve the quote.
+                  </p>
+                </div>
+
+                <Button 
+                  size="lg" 
+                  className="w-full"
+                  onClick={handleSubmitOrder}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Order'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
