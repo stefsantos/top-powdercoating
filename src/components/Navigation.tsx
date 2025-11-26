@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell, LogOut, Menu, X, Package, FileText, Clock, Users, BarChart } from 'lucide-react';
+import { NotificationsPopover } from './NotificationsPopover';
 import logo from '@/assets/logo.jpg';
 
 interface NavigationProps {
@@ -15,6 +17,7 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const clientNav = [
@@ -43,6 +46,43 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    // Subscribe to new notifications
+    const channel = supabase
+      .channel('notifications-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        () => fetchUnreadCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (!error) {
+        setUnreadCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
 
   const handleLogout = () => {
     onLogout?.();
@@ -90,10 +130,20 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
               >
                 <Bell className="w-5 h-5" />
-                <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-destructive text-destructive-foreground text-xs">
-                  3
-                </Badge>
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-destructive text-destructive-foreground text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
               </Button>
+              <NotificationsPopover
+                isOpen={notificationsOpen}
+                onClose={() => {
+                  setNotificationsOpen(false);
+                  fetchUnreadCount();
+                }}
+                isAdmin={isAdmin}
+              />
             </div>
 
             {/* Logout */}
