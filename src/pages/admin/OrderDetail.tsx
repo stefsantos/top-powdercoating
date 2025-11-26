@@ -463,11 +463,11 @@ export default function AdminOrderDetail() {
                   <Label>Progress</Label>
                   <span className="text-sm font-bold">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-5" />
+                <Progress value={progress} className="h-3" />
               </div>
 
               {/* Status Timeline */}
-              <div className="flex items-center justify-between px-4 overflow-x-auto">
+              <div className="flex items-center justify-between px-5 overflow-x-auto">
                 {statusSteps.map((step, index) => {
                   const Icon = step.icon;
                   const isActive = isStatusActive(index);
