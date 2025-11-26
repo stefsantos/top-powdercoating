@@ -290,8 +290,6 @@ export default function ClientDashboard() {
               <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto mb-4">
                 <FileText className="w-6 h-6 text-primary-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-2">View Reports</h3>
-              <p className="text-sm text-muted-foreground">Access invoices and reports</p>
             </CardContent>
           </Card>
         </div>
