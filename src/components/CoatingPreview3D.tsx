@@ -10,8 +10,12 @@ interface CoatingPreview3DProps {
 }
 
 function CoatedPanel({ finish, texture, color }: CoatingPreview3DProps) {
-  // Create normal map textures procedurally
+  // Create normal map textures procedurally with seeded random for consistency
   const normalMap = useMemo(() => {
+    if (texture === 'smooth') {
+      return null;
+    }
+    
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -22,31 +26,42 @@ function CoatedPanel({ finish, texture, color }: CoatingPreview3DProps) {
     ctx.fillStyle = 'rgb(128, 128, 255)';
     ctx.fillRect(0, 0, size, size);
     
+    const imageData = ctx.getImageData(0, 0, size, size);
+    const data = imageData.data;
+    
     if (texture === 'textured') {
-      // Subtle random bumps for textured surface
-      const imageData = ctx.getImageData(0, 0, size, size);
-      const data = imageData.data;
+      // Seeded random for consistent texture
+      const seed = 12345;
+      let seedValue = seed;
+      const seededRandom = () => {
+        seedValue = (seedValue * 9301 + 49297) % 233280;
+        return seedValue / 233280;
+      };
       
+      // Subtle random bumps for textured surface
       for (let i = 0; i < data.length; i += 4) {
-        const variation = (Math.random() - 0.5) * 30;
+        const variation = (seededRandom() - 0.5) * 50;
         data[i] = Math.min(255, Math.max(0, 128 + variation));     // R
         data[i + 1] = Math.min(255, Math.max(0, 128 + variation)); // G
       }
-      ctx.putImageData(imageData, 0, 0);
     } else if (texture === 'hammered') {
-      // Dimpled pattern for hammered surface
-      const imageData = ctx.getImageData(0, 0, size, size);
-      const data = imageData.data;
+      // Seeded random for consistent dimples
+      const seed = 54321;
+      let seedValue = seed;
+      const seededRandom = () => {
+        seedValue = (seedValue * 9301 + 49297) % 233280;
+        return seedValue / 233280;
+      };
       
       // Create circular dimples
-      const dimpleCount = 40;
+      const dimpleCount = 50;
       const dimples: { x: number; y: number; r: number }[] = [];
       
       for (let d = 0; d < dimpleCount; d++) {
         dimples.push({
-          x: Math.random() * size,
-          y: Math.random() * size,
-          r: 8 + Math.random() * 16
+          x: seededRandom() * size,
+          y: seededRandom() * size,
+          r: 10 + seededRandom() * 20
         });
       }
       
@@ -63,10 +78,10 @@ function CoatedPanel({ finish, texture, color }: CoatingPreview3DProps) {
             const dist = Math.sqrt(dx * dx + dy * dy);
             
             if (dist < dimple.r) {
-              const strength = 1 - (dist / dimple.r);
+              const strength = Math.pow(1 - (dist / dimple.r), 0.5);
               const angle = Math.atan2(dy, dx);
-              normalX += Math.cos(angle) * strength * 60;
-              normalY += Math.sin(angle) * strength * 60;
+              normalX += Math.cos(angle) * strength * 80;
+              normalY += Math.sin(angle) * strength * 80;
             }
           }
           
@@ -74,13 +89,15 @@ function CoatedPanel({ finish, texture, color }: CoatingPreview3DProps) {
           data[idx + 1] = Math.min(255, Math.max(0, normalY));
         }
       }
-      ctx.putImageData(imageData, 0, 0);
     }
+    
+    ctx.putImageData(imageData, 0, 0);
     
     const normalTexture = new THREE.CanvasTexture(canvas);
     normalTexture.wrapS = THREE.RepeatWrapping;
     normalTexture.wrapT = THREE.RepeatWrapping;
-    normalTexture.repeat.set(2, 2);
+    normalTexture.repeat.set(3, 3);
+    normalTexture.needsUpdate = true;
     return normalTexture;
   }, [texture]);
 
@@ -88,44 +105,54 @@ function CoatedPanel({ finish, texture, color }: CoatingPreview3DProps) {
   const materialProps = useMemo(() => {
     const baseColor = new THREE.Color(color || '#808080');
     
+    const baseProps: {
+      color: THREE.Color;
+      roughness: number;
+      metalness: number;
+      normalMap?: THREE.CanvasTexture | null;
+      normalScale?: THREE.Vector2;
+      envMapIntensity?: number;
+    } = {
+      color: baseColor,
+      roughness: 0.5,
+      metalness: 0.1,
+    };
+    
     switch (finish) {
       case 'matte':
-        return {
-          color: baseColor,
-          roughness: 0.9,
-          metalness: 0.1,
-          normalMap: texture !== 'smooth' ? normalMap : undefined,
-          normalScale: texture === 'hammered' ? new THREE.Vector2(1.5, 1.5) : new THREE.Vector2(0.5, 0.5),
-        };
+        baseProps.roughness = 0.9;
+        baseProps.metalness = 0.05;
+        break;
       case 'glossy':
-        return {
-          color: baseColor,
-          roughness: 0.1,
-          metalness: 0.3,
-          normalMap: texture !== 'smooth' ? normalMap : undefined,
-          normalScale: texture === 'hammered' ? new THREE.Vector2(1.2, 1.2) : new THREE.Vector2(0.4, 0.4),
-          envMapIntensity: 1.5,
-        };
+        baseProps.roughness = 0.1;
+        baseProps.metalness = 0.4;
+        baseProps.envMapIntensity = 1.5;
+        break;
       case 'satin':
-        return {
-          color: baseColor,
-          roughness: 0.4,
-          metalness: 0.2,
-          normalMap: texture !== 'smooth' ? normalMap : undefined,
-          normalScale: texture === 'hammered' ? new THREE.Vector2(1.3, 1.3) : new THREE.Vector2(0.45, 0.45),
-          envMapIntensity: 0.8,
-        };
-      default:
-        return {
-          color: baseColor,
-          roughness: 0.5,
-          metalness: 0.1,
-        };
+        baseProps.roughness = 0.4;
+        baseProps.metalness = 0.2;
+        baseProps.envMapIntensity = 0.8;
+        break;
     }
+    
+    // Apply normal map based on texture
+    if (normalMap && texture !== 'smooth') {
+      baseProps.normalMap = normalMap;
+      baseProps.normalScale = texture === 'hammered' 
+        ? new THREE.Vector2(2, 2) 
+        : new THREE.Vector2(0.8, 0.8);
+    }
+    
+    return baseProps;
   }, [finish, texture, color, normalMap]);
 
   return (
-    <mesh rotation={[-Math.PI / 6, 0, 0]} castShadow receiveShadow>
+    <mesh 
+      key={`${finish}-${texture}-${color}`}
+      rotation={[-Math.PI / 6, 0, 0]} 
+      castShadow 
+      receiveShadow
+    >
       {/* Rounded box to simulate a coated panel/plate */}
       <boxGeometry args={[3, 3, 0.3]} />
       <meshStandardMaterial {...materialProps} />
