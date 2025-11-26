@@ -362,6 +362,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      notify_admins: {
+        Args: {
+          _message: string
+          _order_id: string
+          _order_number: string
+          _priority?: string
+          _subject: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "client"
