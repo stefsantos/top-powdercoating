@@ -264,7 +264,7 @@ export default function CreateOrder() {
 
   if (step === 'customize') {
     return (
-      <div className="min-h-screen bg-background pt-20">
+      <div className="min-h-screen bg-background pt-24">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-2">Customize Your Order</h1>
@@ -457,7 +457,7 @@ export default function CreateOrder() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20">
+    <div className="min-h-screen bg-background pt-24">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <Button 

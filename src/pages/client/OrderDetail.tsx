@@ -178,7 +178,7 @@ export default function OrderDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-20">
+      <div className="min-h-screen bg-background pt-24">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -190,7 +190,7 @@ export default function OrderDetail() {
 
   if (!orderData) {
     return (
-      <div className="min-h-screen bg-background pt-20">
+      <div className="min-h-screen bg-background pt-24">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <p className="text-center text-muted-foreground">Order not found</p>
         </div>
@@ -201,7 +201,7 @@ export default function OrderDetail() {
   const showQuoteApproval = orderData.status === 'pending_quote' && orderData.quoted_price && !orderData.quote_approved;
 
   return (
-    <div className="min-h-screen bg-background pt-20">
+    <div className="min-h-screen bg-background pt-24">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Button 
           variant="ghost" 
