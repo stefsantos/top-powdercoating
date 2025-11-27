@@ -143,6 +143,24 @@ export default function AdminOrderDetail() {
     }
   }, [id]);
 
+  // Auto-update progress when status changes
+  useEffect(() => {
+    const progressMap: Record<string, number> = {
+      'pending_quote': 0,
+      'queued': 10,
+      'sand-blasting': 25,
+      'coating': 50,
+      'curing': 70,
+      'quality-check': 85,
+      'completed': 100,
+    };
+
+    if (status in progressMap) {
+      setProgress(progressMap[status]);
+    }
+    // For 'delayed' or other statuses, keep current progress
+  }, [status]);
+
   const fetchOrderDetails = async () => {
     try {
       const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", id).single();
