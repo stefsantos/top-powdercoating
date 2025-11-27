@@ -232,7 +232,7 @@ export default function AdminOrderDetail() {
       const updateData: any = {
         status: status as any,
         priority: priority as any,
-        progress,
+        // progress is automatically set by the database trigger based on status
         estimated_completion: estimatedCompletion || null,
         additional_notes: notes,
         updated_at: new Date().toISOString(),
@@ -530,15 +530,12 @@ export default function AdminOrderDetail() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="progress">Progress (%)</Label>
-                  <Input
-                    id="progress"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={progress}
-                    onChange={(e) => setProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                  />
+                  <Label>Progress (Auto-calculated)</Label>
+                  <div className="flex items-center gap-3">
+                    <Progress value={progress} className="flex-1" />
+                    <span className="text-sm font-medium text-muted-foreground w-12">{progress}%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Progress is automatically updated based on order status</p>
                 </div>
               </div>
 
