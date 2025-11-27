@@ -514,7 +514,7 @@ export default function AdminOrderDetail() {
               </div>
 
               {/* Edit Status & Priority */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-4 pt-4 border-t">
                 <div className="space-y-2">
                   <Label htmlFor="status">Update Status</Label>
                   <Select value={status} onValueChange={setStatus}>
