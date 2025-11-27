@@ -298,33 +298,39 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           department: string
+          email: string | null
           id: string
           name: string
           role: string
           status: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           availability?: string | null
           avatar_url?: string | null
           created_at?: string
           department: string
+          email?: string | null
           id?: string
           name: string
           role: string
           status?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           availability?: string | null
           avatar_url?: string | null
           created_at?: string
           department?: string
+          email?: string | null
           id?: string
           name?: string
           role?: string
           status?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -374,7 +380,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "client"
+      app_role: "admin" | "client" | "team_member"
       finish_type: "matte" | "glossy" | "satin"
       order_priority: "low" | "medium" | "high" | "urgent"
       order_status:
@@ -514,7 +520,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "client"],
+      app_role: ["admin", "client", "team_member"],
       finish_type: ["matte", "glossy", "satin"],
       order_priority: ["low", "medium", "high", "urgent"],
       order_status: [

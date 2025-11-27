@@ -61,30 +61,29 @@ export default function Login() {
       }
 
       if (data.user) {
-        // Check user role from database
-        const { data: roleData, error: roleError } = await supabase
+        // Check user role and redirect accordingly
+        const { data: roles, error: rolesError } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', data.user.id)
-          .single();
+          .eq('user_id', data.user.id);
 
-        if (roleError && roleError.code !== 'PGRST116') {
-          console.error('Role check error:', roleError);
+        if (rolesError) {
+          console.error('Error fetching user roles:', rolesError);
         }
 
-        const userRole = roleData?.role || 'client';
-        const isAdmin = userRole === 'admin';
+        const userRoles = roles?.map(r => r.role) || [];
 
-        // Navigate based on actual role, not mode
-        if (isAdminMode && !isAdmin) {
-          setError('You do not have admin access');
+        // Redirect based on role
+        if (userRoles.includes('team_member')) {
+          navigate('/team/dashboard');
+        } else if (isAdminMode && userRoles.includes('admin')) {
+          navigate('/admin/dashboard');
+        } else if (!isAdminMode && !userRoles.includes('admin')) {
+          navigate('/client/dashboard');
+        } else {
+          setError(isAdminMode ? 'Access denied. Admin credentials required.' : 'Access denied. Client credentials required.');
           await supabase.auth.signOut();
-          setLoading(false);
-          return;
         }
-
-        toast.success('Welcome back! You have successfully logged in.');
-        navigate(isAdmin ? '/admin/dashboard' : '/client/dashboard');
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
