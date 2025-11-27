@@ -368,6 +368,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_team_member_assigned_to_order: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
       notify_admins: {
         Args: {
           _message: string
