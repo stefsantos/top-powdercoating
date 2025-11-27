@@ -146,13 +146,13 @@ export default function AdminOrderDetail() {
   // Auto-update progress when status changes
   useEffect(() => {
     const progressMap: Record<string, number> = {
-      'pending_quote': 0,
-      'queued': 10,
-      'sand-blasting': 25,
-      'coating': 50,
-      'curing': 70,
-      'quality-check': 85,
-      'completed': 100,
+      pending_quote: 0,
+      queued: 10,
+      "sand-blasting": 25,
+      coating: 50,
+      curing: 70,
+      "quality-check": 85,
+      completed: 100,
     };
 
     if (status in progressMap) {
@@ -545,15 +545,6 @@ export default function AdminOrderDetail() {
                       <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Progress (Auto-calculated)</Label>
-                  <div className="flex items-center gap-3">
-                    <Progress value={progress} className="flex-1" />
-                    <span className="text-sm font-medium text-muted-foreground w-12">{progress}%</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Progress is automatically updated based on order status</p>
                 </div>
               </div>
 
