@@ -6,9 +6,10 @@ import { Loader2 } from 'lucide-react';
 interface AuthGuardProps {
   children: ReactNode;
   requireAdmin?: boolean;
+  requireTeamMember?: boolean;
 }
 
-export function AuthGuard({ children, requireAdmin = false }: AuthGuardProps) {
+export function AuthGuard({ children, requireAdmin = false, requireTeamMember = false }: AuthGuardProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -38,6 +39,33 @@ export function AuthGuard({ children, requireAdmin = false }: AuthGuardProps) {
         if (error || !roles) {
           // Not an admin, redirect to client dashboard
           navigate('/client/dashboard');
+          return;
+        }
+      }
+
+      if (requireTeamMember) {
+        // Check if user has team_member role
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'team_member')
+          .single();
+
+        if (error || !roles) {
+          // Not a team member, redirect based on other roles
+          const { data: adminRoles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .single();
+          
+          if (adminRoles) {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/client/dashboard');
+          }
           return;
         }
       }

@@ -19,6 +19,8 @@ interface TeamMember {
   role: string;
   department: string;
   avatar_url: string | null;
+  email: string | null;
+  user_id: string | null;
   status: string;
   availability: string;
   created_at: string;
@@ -69,7 +71,8 @@ export default function TeamManagement() {
     department: '',
     status: 'active',
     availability: 'available',
-    avatar_url: ''
+    avatar_url: '',
+    email: ''
   });
 
   useEffect(() => {
@@ -113,6 +116,15 @@ export default function TeamManagement() {
     }
   };
 
+  const generateEmail = (name: string) => {
+    return name.toLowerCase().replace(/\s+/g, '.') + '@toppowdercoating.com';
+  };
+
+  const generatePassword = (name: string) => {
+    const memberCount = teamMembers.length + 1;
+    return 'member' + memberCount;
+  };
+
   const handleCreate = async () => {
     if (!formData.name || !formData.role || !formData.department) {
       toast.error('Please fill in all required fields');
@@ -121,26 +133,53 @@ export default function TeamManagement() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      // Generate email if not provided
+      const email = formData.email || generateEmail(formData.name);
+      const password = generatePassword(formData.name);
+
+      // First create the team member without email
+      const { data: newMember, error: insertError } = await supabase
         .from('team_members')
-        .insert([{
+        .insert([{ 
           name: formData.name.trim(),
           role: formData.role.trim(),
           department: formData.department,
           status: formData.status,
           availability: formData.availability,
           avatar_url: formData.avatar_url || null
-        }]);
+        }])
+        .select()
+        .single();
 
-      if (error) throw error;
-      
-      toast.success('Team member added successfully');
+      if (insertError) throw insertError;
+
+      // Then create the auth account
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke('create-team-member-account', {
+        body: {
+          email,
+          password,
+          teamMemberId: newMember.id,
+          fullName: formData.name,
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        console.error('Error creating account:', response.error);
+        toast.success(`Added ${formData.name} but couldn't create account. Email: ${email}, Password: ${password}`);
+      } else {
+        toast.success(`Team member added! Email: ${email}, Password: ${password}`);
+      }
+
       setCreateDialogOpen(false);
       resetForm();
       fetchTeamMembers();
     } catch (error) {
       console.error('Error creating team member:', error);
-      toast.error('Failed to add team member');
+      toast.error('Failed to create team member');
     } finally {
       setSaving(false);
     }
@@ -213,7 +252,8 @@ export default function TeamManagement() {
       department: member.department,
       status: member.status,
       availability: member.availability,
-      avatar_url: member.avatar_url || ''
+      avatar_url: member.avatar_url || '',
+      email: member.email || ''
     });
     setEditDialogOpen(true);
   };
@@ -230,8 +270,10 @@ export default function TeamManagement() {
       department: '',
       status: 'active',
       availability: 'available',
-      avatar_url: ''
+      avatar_url: '',
+      email: ''
     });
+    setSelectedMember(null);
   };
 
   const filteredMembers = teamMembers.filter(member => {
@@ -543,6 +585,22 @@ export default function TeamManagement() {
                 value={formData.avatar_url}
                 onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-email">
+                Email <span className="text-xs text-muted-foreground">(Auto-generated if empty)</span>
+              </Label>
+              <Input
+                id="create-email"
+                type="email"
+                placeholder={generateEmail(formData.name || 'member')}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Password will be: {generatePassword(formData.name || 'member')}
+              </p>
             </div>
           </div>
           <DialogFooter>
