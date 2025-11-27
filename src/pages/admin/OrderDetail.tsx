@@ -547,7 +547,16 @@ export default function AdminOrderDetail() {
                   </Select>
                 </div>
 
-              
+                <div className="space-y-2">
+                  <Label>Progress (Auto-calculated)</Label>
+                  <div className="flex items-center gap-3">
+                    <Progress value={progress} className="flex-1" />
+                    <span className="text-sm font-medium text-muted-foreground w-12">{progress}%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Progress is automatically updated based on order status</p>
+                </div>
+              </div>
+
               {/* Estimated Completion */}
               <div className="space-y-2">
                 <Label htmlFor="estimated">Estimated Completion Date</Label>
