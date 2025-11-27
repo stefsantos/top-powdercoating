@@ -72,7 +72,8 @@ export default function TeamManagement() {
     status: 'active',
     availability: 'available',
     avatar_url: '',
-    email: ''
+    email: '',
+    newPassword: ''
   });
 
   useEffect(() => {
@@ -193,6 +194,7 @@ export default function TeamManagement() {
 
     setSaving(true);
     try {
+      // Update team member basic info
       const { error } = await supabase
         .from('team_members')
         .update({
@@ -206,8 +208,32 @@ export default function TeamManagement() {
         .eq('id', selectedMember.id);
 
       if (error) throw error;
+
+      // Update credentials if they changed and user_id exists
+      if (selectedMember.user_id && (formData.email !== selectedMember.email || formData.newPassword)) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await supabase.functions.invoke('update-team-member-credentials', {
+          body: {
+            userId: selectedMember.user_id,
+            teamMemberId: selectedMember.id,
+            email: formData.email !== selectedMember.email ? formData.email : undefined,
+            password: formData.newPassword || undefined,
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
+        if (response.error) {
+          console.error('Error updating credentials:', response.error);
+          toast.warning('Team member updated but credentials update failed');
+        } else {
+          toast.success('Team member and credentials updated successfully');
+        }
+      } else {
+        toast.success('Team member updated successfully');
+      }
       
-      toast.success('Team member updated successfully');
       setEditDialogOpen(false);
       setSelectedMember(null);
       resetForm();
@@ -253,7 +279,8 @@ export default function TeamManagement() {
       status: member.status,
       availability: member.availability,
       avatar_url: member.avatar_url || '',
-      email: member.email || ''
+      email: member.email || '',
+      newPassword: ''
     });
     setEditDialogOpen(true);
   };
@@ -271,7 +298,8 @@ export default function TeamManagement() {
       status: 'active',
       availability: 'available',
       avatar_url: '',
-      email: ''
+      email: '',
+      newPassword: ''
     });
     setSelectedMember(null);
   };
@@ -705,6 +733,44 @@ export default function TeamManagement() {
                 onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
               />
             </div>
+
+            {selectedMember?.user_id && (
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="font-semibold text-sm">Login Credentials</h4>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">
+                    Email
+                  </Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="email@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Current: {selectedMember.email || 'Not set'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-password">
+                    New Password <span className="text-xs text-muted-foreground">(Leave blank to keep current)</span>
+                  </Label>
+                  <Input
+                    id="edit-password"
+                    type="text"
+                    placeholder="Enter new password"
+                    value={formData.newPassword}
+                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Passwords are hashed and cannot be retrieved
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setEditDialogOpen(false); setSelectedMember(null); resetForm(); }}>
