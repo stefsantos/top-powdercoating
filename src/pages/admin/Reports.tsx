@@ -21,6 +21,7 @@ interface ReportData {
   priorityBreakdown?: any;
   clientStatistics?: any;
   orderSpecifications?: any;
+  delayedOrders?: any;
 }
 
 export default function Reports() {
@@ -33,6 +34,7 @@ export default function Reports() {
     priorityBreakdown: false,
     clientStatistics: false,
     orderSpecifications: false,
+    delayedOrders: false,
   });
   const [exportFormat, setExportFormat] = useState<'pdf' | 'csv' | 'both'>('pdf');
   const [loading, setLoading] = useState(false);
@@ -247,6 +249,33 @@ export default function Reports() {
         }
       }
 
+      if (selectedCategories.delayedOrders) {
+        const { data: delayedOrders, error } = await supabase
+          .from('orders')
+          .select('order_number, project_name, description, submitted_date, estimated_completion, priority, profiles(full_name)')
+          .eq('status', 'delayed')
+          .gte('created_at', startDateStr)
+          .lte('created_at', endDateStr)
+          .order('submitted_date', { ascending: false });
+
+        if (!error && delayedOrders) {
+          data.delayedOrders = {
+            count: delayedOrders.length,
+            orders: delayedOrders.map((order: any) => ({
+              orderNumber: order.order_number,
+              projectName: order.project_name,
+              description: order.description,
+              clientName: order.profiles?.full_name || 'Unknown',
+              submittedDate: format(new Date(order.submitted_date), 'MMM dd, yyyy'),
+              estimatedCompletion: order.estimated_completion 
+                ? format(new Date(order.estimated_completion), 'MMM dd, yyyy')
+                : 'Not set',
+              priority: order.priority,
+            })),
+          };
+        }
+      }
+
       setReportData(data);
       toast({
         title: 'Report Generated',
@@ -452,6 +481,44 @@ export default function Reports() {
       });
     }
 
+    // Delayed Orders
+    if (reportData.delayedOrders) {
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Delayed Orders (${reportData.delayedOrders.count})`, 14, yPos);
+      yPos += 10;
+
+      const delayedData = reportData.delayedOrders.orders.map((order: any) => [
+        order.orderNumber,
+        order.projectName,
+        order.clientName,
+        order.priority.toUpperCase(),
+        order.submittedDate,
+        order.estimatedCompletion,
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Order #', 'Project', 'Client', 'Priority', 'Submitted', 'Est. Completion']],
+        body: delayedData,
+        theme: 'grid',
+        styles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 30 },
+        },
+      });
+    }
+
     // Footer
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -538,6 +605,15 @@ export default function Reports() {
       csv += 'Color,Count\n';
       reportData.orderSpecifications.topColors.forEach(([color, count]: [string, number]) => {
         csv += `${color},${count}\n`;
+      });
+      csv += '\n';
+    }
+
+    if (reportData.delayedOrders) {
+      csv += `Delayed Orders (${reportData.delayedOrders.count})\n`;
+      csv += 'Order Number,Project Name,Client,Priority,Submitted Date,Est. Completion,Description\n';
+      reportData.delayedOrders.orders.forEach((order: any) => {
+        csv += `${order.orderNumber},${order.projectName},${order.clientName},${order.priority},${order.submittedDate},${order.estimatedCompletion},"${order.description}"\n`;
       });
     }
 
@@ -726,6 +802,17 @@ export default function Reports() {
                     Order Specifications
                   </Label>
                 </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="delayedOrders"
+                    checked={selectedCategories.delayedOrders}
+                    onCheckedChange={() => toggleCategory('delayedOrders')}
+                  />
+                  <Label htmlFor="delayedOrders" className="cursor-pointer">
+                    Delayed Orders
+                  </Label>
+                </div>
               </div>
             </div>
 
@@ -817,6 +904,35 @@ export default function Reports() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Order Specifications</h3>
                   <p className="text-sm text-muted-foreground">Total Items: {reportData.orderSpecifications.totalQuantity}</p>
+                </div>
+              )}
+
+              {reportData.delayedOrders && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Delayed Orders</h3>
+                  <p className="text-sm text-muted-foreground mb-3">Total Delayed: {reportData.delayedOrders.count}</p>
+                  {reportData.delayedOrders.count > 0 && (
+                    <div className="space-y-2">
+                      {reportData.delayedOrders.orders.slice(0, 5).map((order: any, idx: number) => (
+                        <div key={idx} className="p-3 border border-border rounded-md bg-card">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="font-medium text-sm">{order.orderNumber}</p>
+                            <span className="text-xs px-2 py-1 rounded bg-destructive/10 text-destructive">
+                              {order.priority.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{order.projectName}</p>
+                          <p className="text-xs text-muted-foreground">Client: {order.clientName}</p>
+                          <p className="text-xs text-muted-foreground">Est. Completion: {order.estimatedCompletion}</p>
+                        </div>
+                      ))}
+                      {reportData.delayedOrders.count > 5 && (
+                        <p className="text-xs text-muted-foreground">
+                          + {reportData.delayedOrders.count - 5} more delayed orders (see full report)
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
