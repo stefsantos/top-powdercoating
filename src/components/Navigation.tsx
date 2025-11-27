@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, LogOut, Menu, X, Package, FileText, Clock, Users, BarChart } from 'lucide-react';
+import { Bell, LogOut, Menu, X, Package, FileText, Clock, Users, BarChart, FileBarChart } from 'lucide-react';
 import { NotificationsPopover } from './NotificationsPopover';
 import logo from '@/assets/logo.jpg';
 
@@ -33,6 +33,7 @@ export function Navigation({ isAdmin = false, isTeamMember = false, onLogout }: 
     { label: 'Orders', path: '/admin/orders', icon: Package },
     { label: 'Clients', path: '/admin/clients', icon: Users },
     { label: 'Team', path: '/admin/team', icon: Users },
+    { label: 'Reports', path: '/admin/reports', icon: FileBarChart },
   ];
 
   const teamNav = [

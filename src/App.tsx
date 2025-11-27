@@ -22,6 +22,7 @@ import OrderManagement from "./pages/admin/OrderManagement";
 import AdminOrderDetail from "./pages/admin/OrderDetail";
 import ClientManagement from "./pages/admin/ClientManagement";
 import TeamManagement from "./pages/admin/TeamManagement";
+import Reports from "./pages/admin/Reports";
 import TeamDashboard from "./pages/team/Dashboard";
 import TeamOrderDetail from "./pages/team/OrderDetail";
 import NotFound from "./pages/NotFound";
@@ -160,6 +161,15 @@ const AppContent = () => {
           <AuthGuard requireAdmin>
             <Navigation isAdmin={true} onLogout={handleLogout} />
             <TeamManagement />
+          </AuthGuard>
+        } 
+      />
+      <Route
+        path="/admin/reports" 
+        element={
+          <AuthGuard requireAdmin>
+            <Navigation isAdmin={true} onLogout={handleLogout} />
+            <Reports />
           </AuthGuard>
         } 
       />
