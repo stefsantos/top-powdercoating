@@ -168,7 +168,7 @@ const AppContent = () => {
         path="/team/dashboard" 
         element={
           <AuthGuard requireTeamMember>
-            <Navigation isAdmin={false} onLogout={handleLogout} />
+            <Navigation isTeamMember={true} onLogout={handleLogout} />
             <TeamDashboard />
           </AuthGuard>
         } 

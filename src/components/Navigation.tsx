@@ -9,10 +9,11 @@ import logo from '@/assets/logo.jpg';
 
 interface NavigationProps {
   isAdmin?: boolean;
+  isTeamMember?: boolean;
   onLogout?: () => void;
 }
 
-export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
+export function Navigation({ isAdmin = false, isTeamMember = false, onLogout }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,7 +35,12 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
     { label: 'Team', path: '/admin/team', icon: Users },
   ];
 
-  const navItems = isAdmin ? adminNav : clientNav;
+  const teamNav = [
+    { label: 'Dashboard', path: '/team/dashboard', icon: BarChart },
+    { label: 'My Orders', path: '/team/orders', icon: Package },
+  ];
+
+  const navItems = isAdmin ? adminNav : isTeamMember ? teamNav : clientNav;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,7 +100,7 @@ export function Navigation({ isAdmin = false, onLogout }: NavigationProps) {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate(isAdmin ? '/admin/dashboard' : '/client/dashboard')}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate(isAdmin ? '/admin/dashboard' : isTeamMember ? '/team/dashboard' : '/client/dashboard')}>
             <img src={logo} alt="Top Powdercoating Logo" className="h-10 w-10 object-contain rounded-lg" />
             <span className="text-xl font-bold text-foreground hidden md:block">
               Top Powdercoating
