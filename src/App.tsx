@@ -23,6 +23,7 @@ import AdminOrderDetail from "./pages/admin/OrderDetail";
 import ClientManagement from "./pages/admin/ClientManagement";
 import TeamManagement from "./pages/admin/TeamManagement";
 import TeamDashboard from "./pages/team/Dashboard";
+import TeamOrderDetail from "./pages/team/OrderDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -178,7 +179,7 @@ const AppContent = () => {
         element={
           <AuthGuard requireTeamMember>
             <Navigation isTeamMember={true} onLogout={handleLogout} />
-            <AdminOrderDetail />
+            <TeamOrderDetail />
           </AuthGuard>
         } 
       />
