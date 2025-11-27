@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Calendar, Package, FileText, CheckCircle2, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Calendar, Package, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderDetails {
   id: string;
@@ -55,40 +55,33 @@ export default function TeamOrderDetail() {
   const fetchOrderDetails = async () => {
     try {
       // Fetch order details
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data: orderData, error: orderError } = await supabase.from("orders").select("*").eq("id", id).single();
 
       if (orderError) throw orderError;
       setOrder(orderData);
 
       // Fetch order files
-      const { data: filesData, error: filesError } = await supabase
-        .from('order_files')
-        .select('*')
-        .eq('order_id', id);
+      const { data: filesData, error: filesError } = await supabase.from("order_files").select("*").eq("order_id", id);
 
       if (filesError) throw filesError;
       setFiles(filesData || []);
 
       // Fetch customizations
       const { data: customData, error: customError } = await supabase
-        .from('order_customizations')
-        .select('*')
-        .eq('order_id', id)
+        .from("order_customizations")
+        .select("*")
+        .eq("order_id", id)
         .single();
 
       if (!customError && customData) {
         setCustomization(customData);
       }
     } catch (error) {
-      console.error('Error fetching order details:', error);
+      console.error("Error fetching order details:", error);
       toast({
-        title: 'Error',
-        description: 'Failed to load order details',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to load order details",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -100,60 +93,60 @@ export default function TeamOrderDetail() {
 
     try {
       const { error } = await supabase
-        .from('orders')
-        .update({ 
-          status: 'completed',
+        .from("orders")
+        .update({
+          status: "completed",
           completed_date: new Date().toISOString(),
           progress: 100,
         })
-        .eq('id', order.id);
+        .eq("id", order.id);
 
       if (error) throw error;
 
       toast({
-        title: 'Order Completed! 🎉',
+        title: "Order Completed! 🎉",
         description: `Order ${order.order_number} has been marked as completed`,
       });
 
-      navigate('/team/dashboard');
+      navigate("/team/dashboard");
     } catch (error) {
-      console.error('Error completing order:', error);
+      console.error("Error completing order:", error);
       toast({
-        title: 'Error',
-        description: 'Failed to complete order',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to complete order",
+        variant: "destructive",
       });
     }
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      'pending_quote': 'bg-yellow-500',
-      'queued': 'bg-blue-500',
-      'sand-blasting': 'bg-orange-500',
-      'coating': 'bg-purple-500',
-      'curing': 'bg-pink-500',
-      'quality-check': 'bg-teal-500',
-      'completed': 'bg-green-500',
-      'delayed': 'bg-red-500',
+      pending_quote: "bg-yellow-500",
+      queued: "bg-blue-500",
+      "sand-blasting": "bg-orange-500",
+      coating: "bg-purple-500",
+      curing: "bg-pink-500",
+      "quality-check": "bg-teal-500",
+      completed: "bg-green-500",
+      delayed: "bg-red-500",
     };
-    return colors[status] || 'bg-gray-500';
+    return colors[status] || "bg-gray-500";
   };
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      'low': 'bg-green-100 text-green-800',
-      'medium': 'bg-yellow-100 text-yellow-800',
-      'high': 'bg-red-100 text-red-800',
-      'urgent': 'bg-red-200 text-red-900',
+      low: "bg-green-100 text-green-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      high: "bg-red-100 text-red-800",
+      urgent: "bg-red-200 text-red-900",
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    return colors[priority] || "bg-gray-100 text-gray-800";
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   if (loading) {
@@ -169,7 +162,7 @@ export default function TeamOrderDetail() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Order not found</h2>
-          <Button onClick={() => navigate('/team/dashboard')}>
+          <Button onClick={() => navigate("/team/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
@@ -179,12 +172,12 @@ export default function TeamOrderDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background md:p-20 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/team/dashboard')}>
+            <Button variant="ghost" onClick={() => navigate("/team/dashboard")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -193,7 +186,7 @@ export default function TeamOrderDetail() {
               <p className="text-muted-foreground">{order.project_name}</p>
             </div>
           </div>
-          {order.status !== 'completed' && (
+          {order.status !== "completed" && (
             <Button onClick={handleCompleteOrder}>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Mark as Complete
@@ -207,12 +200,8 @@ export default function TeamOrderDetail() {
             <div className="flex items-center justify-between">
               <CardTitle>Order Status</CardTitle>
               <div className="flex gap-2">
-                <Badge className={getStatusColor(order.status)}>
-                  {order.status.replace('-', ' ')}
-                </Badge>
-                <Badge className={getPriorityColor(order.priority)}>
-                  {order.priority}
-                </Badge>
+                <Badge className={getStatusColor(order.status)}>{order.status.replace("-", " ")}</Badge>
+                <Badge className={getPriorityColor(order.priority)}>{order.priority}</Badge>
               </div>
             </div>
           </CardHeader>
@@ -256,9 +245,7 @@ export default function TeamOrderDetail() {
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm text-muted-foreground">Submitted</p>
-                  <p className="font-medium">
-                    {new Date(order.submitted_date).toLocaleDateString()}
-                  </p>
+                  <p className="font-medium">{new Date(order.submitted_date).toLocaleDateString()}</p>
                 </div>
               </div>
 
@@ -267,9 +254,7 @@ export default function TeamOrderDetail() {
                   <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm text-muted-foreground">Est. Completion</p>
-                    <p className="font-medium">
-                      {new Date(order.estimated_completion).toLocaleDateString()}
-                    </p>
+                    <p className="font-medium">{new Date(order.estimated_completion).toLocaleDateString()}</p>
                   </div>
                 </div>
               )}
@@ -353,16 +338,10 @@ export default function TeamOrderDetail() {
                       <FileText className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="font-medium">{file.file_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatFileSize(file.file_size)}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{formatFileSize(file.file_size)}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(file.file_url, '_blank')}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => window.open(file.file_url, "_blank")}>
                       View
                     </Button>
                   </div>
