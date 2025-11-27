@@ -255,7 +255,7 @@ export default function TeamDashboard() {
               <div className="space-y-4">
                 {assignedOrders.map((order) => (
                   <Card key={order.id} className="border-2 cursor-pointer hover:border-primary transition-colors">
-                    <CardContent className="pt-6" onClick={() => window.location.href = `/admin/order/${order.id}`}>
+                    <CardContent className="pt-6" onClick={() => window.location.href = `/team/orders/${order.id}`}>
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2">

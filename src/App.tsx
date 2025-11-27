@@ -173,6 +173,15 @@ const AppContent = () => {
           </AuthGuard>
         } 
       />
+      <Route 
+        path="/team/orders/:id" 
+        element={
+          <AuthGuard requireTeamMember>
+            <Navigation isTeamMember={true} onLogout={handleLogout} />
+            <AdminOrderDetail />
+          </AuthGuard>
+        } 
+      />
       
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
