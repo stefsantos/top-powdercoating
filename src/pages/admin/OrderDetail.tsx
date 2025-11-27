@@ -30,9 +30,11 @@ import {
   History,
   Loader2,
   DollarSign,
+  Eye,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ImageViewerDialog } from "@/components/ImageViewerDialog";
 
 interface OrderData {
   id: string;
@@ -123,6 +125,7 @@ export default function AdminOrderDetail() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [assignedTeamMembers, setAssignedTeamMembers] = useState<string[]>([]);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
 
   // Editable fields
   const [status, setStatus] = useState("");
@@ -707,10 +710,13 @@ export default function AdminOrderDetail() {
                               <p className="text-sm text-muted-foreground">{(file.file_size / 1024).toFixed(2)} KB</p>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer">
-                              View
-                            </a>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setViewingFile({ url: file.file_url, name: file.file_name })}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
                           </Button>
                         </div>
                       ))}
@@ -806,6 +812,14 @@ export default function AdminOrderDetail() {
           </div>
         </div>
       </div>
+
+      {/* Image Viewer Dialog */}
+      <ImageViewerDialog
+        isOpen={!!viewingFile}
+        onClose={() => setViewingFile(null)}
+        imageUrl={viewingFile?.url || ""}
+        fileName={viewingFile?.name || ""}
+      />
     </ScrollArea>
   );
 }
