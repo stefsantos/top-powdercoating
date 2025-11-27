@@ -63,6 +63,7 @@ export default function TeamManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [saving, setSaving] = useState(false);
+  const [batchCreating, setBatchCreating] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -322,11 +323,55 @@ export default function TeamManagement() {
     return availOption || availabilityOptions[0];
   };
 
+  const handleBatchCreateAccounts = async () => {
+    setBatchCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke('batch-create-team-accounts', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        console.error('Error batch creating accounts:', response.error);
+        toast.error('Failed to create accounts');
+      } else {
+        const results = response.data?.results || [];
+        const successful = results.filter((r: any) => r.success);
+        const failed = results.filter((r: any) => !r.success);
+
+        if (successful.length > 0) {
+          const credentialsList = successful
+            .map((r: any) => `${r.name}: ${r.email} / ${r.password}`)
+            .join('\n');
+          
+          toast.success(`Created ${successful.length} account(s)!`, {
+            description: credentialsList,
+            duration: 15000,
+          });
+        }
+
+        if (failed.length > 0) {
+          toast.warning(`${failed.length} account(s) failed to create`);
+        }
+
+        fetchTeamMembers();
+      }
+    } catch (error) {
+      console.error('Error batch creating accounts:', error);
+      toast.error('Failed to create accounts');
+    } finally {
+      setBatchCreating(false);
+    }
+  };
+
   const stats = {
     total: teamMembers.length,
     active: teamMembers.filter(m => m.status === 'active').length,
     available: teamMembers.filter(m => m.availability === 'available').length,
-    busy: teamMembers.filter(m => m.availability === 'busy').length
+    busy: teamMembers.filter(m => m.availability === 'busy').length,
+    withoutAccounts: teamMembers.filter(m => !m.user_id).length
   };
 
   return (
@@ -344,10 +389,27 @@ export default function TeamManagement() {
                 <p className="text-muted-foreground">Manage your team members and their availability</p>
               </div>
             </div>
-            <Button onClick={() => setCreateDialogOpen(true)} size="lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Team Member
-            </Button>
+            <div className="flex gap-2">
+              {stats.withoutAccounts > 0 && (
+                <Button 
+                  onClick={handleBatchCreateAccounts} 
+                  size="lg"
+                  variant="outline"
+                  disabled={batchCreating}
+                >
+                  {batchCreating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
+                  Create {stats.withoutAccounts} Account{stats.withoutAccounts !== 1 ? 's' : ''}
+                </Button>
+              )}
+              <Button onClick={() => setCreateDialogOpen(true)} size="lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Team Member
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}
