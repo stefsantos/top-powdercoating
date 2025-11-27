@@ -51,7 +51,7 @@ export default function CreateOrder() {
   const [quantity, setQuantity] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: number }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: number; file: File }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,14 +69,12 @@ export default function CreateOrder() {
     }
 
     // Validate file types
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "application/dwg"];
-    const invalidTypes = files.filter(
-      (file) => !allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith(".dwg"),
-    );
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    const invalidTypes = files.filter((file) => !allowedTypes.includes(file.type));
 
     if (invalidTypes.length > 0) {
       toast.error("Invalid file type", {
-        description: "Only PDF, JPG, PNG, and DWG files are allowed",
+        description: "Only PDF, JPG, and PNG files are allowed",
       });
       return;
     }
@@ -84,9 +82,10 @@ export default function CreateOrder() {
     const newFiles = files.map((file) => ({
       name: file.name,
       size: file.size,
+      file: file,
     }));
     setUploadedFiles([...uploadedFiles, ...newFiles]);
-    toast.success(`${files.length} file(s) uploaded successfully`);
+    toast.success(`${files.length} file(s) added`);
   };
 
   const removeFile = (index: number) => {
@@ -215,18 +214,39 @@ export default function CreateOrder() {
 
       if (customizationError) throw customizationError;
 
-      // Store file references (in real app, would upload to storage first)
+      // Upload files to storage and store references
       if (uploadedFiles.length > 0) {
-        const fileInserts = uploadedFiles.map((file) => ({
-          order_id: orderData.id,
-          file_name: file.name,
-          file_size: file.size,
-          file_url: `placeholder-${file.name}`, // Would be actual storage URL
-        }));
+        const fileInserts = [];
+        
+        for (const uploadedFile of uploadedFiles) {
+          const fileExt = uploadedFile.name.split('.').pop();
+          const fileName = `${user.id}/${orderData.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('order-files')
+            .upload(fileName, uploadedFile.file);
+          
+          if (uploadError) {
+            console.error('Error uploading file:', uploadError);
+            continue;
+          }
+          
+          const { data: publicUrlData } = supabase.storage
+            .from('order-files')
+            .getPublicUrl(fileName);
+          
+          fileInserts.push({
+            order_id: orderData.id,
+            file_name: uploadedFile.name,
+            file_size: uploadedFile.size,
+            file_url: publicUrlData.publicUrl,
+          });
+        }
 
-        const { error: filesError } = await supabase.from("order_files").insert(fileInserts);
-
-        if (filesError) throw filesError;
+        if (fileInserts.length > 0) {
+          const { error: filesError } = await supabase.from("order_files").insert(fileInserts);
+          if (filesError) throw filesError;
+        }
       }
 
       toast.success("Order submitted successfully!", {
