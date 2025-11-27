@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Plus, Edit, Trash2, Clock, CheckCircle, Coffee, XCircle, Loader2, Search } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Clock, CheckCircle, Coffee, XCircle, Loader2, Search, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -477,6 +477,19 @@ export default function TeamManagement() {
                       </div>
 
                       <div className="space-y-3">
+                        {member.email && (
+                          <div className="flex flex-col gap-1 pb-2 border-b">
+                            <span className="text-xs text-muted-foreground">Login Credentials</span>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm font-mono">{member.email}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground italic">
+                              Password shown at account creation only
+                            </span>
+                          </div>
+                        )}
+                        
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Department</span>
                           <Badge variant="outline">{member.department}</Badge>
