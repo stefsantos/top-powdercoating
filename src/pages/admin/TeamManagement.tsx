@@ -505,18 +505,24 @@ export default function TeamManagement() {
                       </div>
 
                       <div className="space-y-3">
-                        {member.email && (
-                          <div className="flex flex-col gap-1 pb-2 border-b">
-                            <span className="text-xs text-muted-foreground">Login Credentials</span>
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm font-mono">{member.email}</span>
-                            </div>
+                        <div className="flex flex-col gap-1 pb-2 border-b bg-muted/30 -mx-6 px-6 py-3">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase">Login Credentials</span>
+                          {member.email ? (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm font-mono">{member.email}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                Password: <span className="italic">Hidden (hashed)</span>
+                              </span>
+                            </>
+                          ) : (
                             <span className="text-xs text-muted-foreground italic">
-                              Password shown at account creation only
+                              No login account created yet
                             </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                         
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Department</span>
@@ -658,11 +664,30 @@ export default function TeamManagement() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {selectedMember?.user_id && (
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Current Login Credentials
+                </h4>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Email:</span>
+                    <span className="text-sm font-mono">{selectedMember.email || 'Not set'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Password:</span>
+                    <span className="text-sm italic">Hidden (hashed)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="edit-name">Name *</Label>
               <Input
@@ -736,39 +761,42 @@ export default function TeamManagement() {
 
             {selectedMember?.user_id && (
               <div className="space-y-4 pt-4 border-t">
-                <h4 className="font-semibold text-sm">Login Credentials</h4>
+                <h4 className="font-semibold text-sm">Update Login Credentials</h4>
+                <p className="text-xs text-muted-foreground">Change email or password below. Leave fields blank to keep current values.</p>
                 
                 <div className="space-y-2">
                   <Label htmlFor="edit-email">
-                    Email
+                    New Email <span className="text-xs text-muted-foreground">(Optional)</span>
                   </Label>
                   <Input
                     id="edit-email"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder={selectedMember.email || "email@example.com"}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Current: {selectedMember.email || 'Not set'}
-                  </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-password">
-                    New Password <span className="text-xs text-muted-foreground">(Leave blank to keep current)</span>
+                    New Password <span className="text-xs text-muted-foreground">(Optional)</span>
                   </Label>
                   <Input
                     id="edit-password"
                     type="text"
-                    placeholder="Enter new password"
+                    placeholder="Enter new password to change"
                     value={formData.newPassword}
                     onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Passwords are hashed and cannot be retrieved
-                  </p>
                 </div>
+              </div>
+            )}
+            
+            {!selectedMember?.user_id && (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3">
+                <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  This team member doesn't have a login account yet.
+                </p>
               </div>
             )}
           </div>
