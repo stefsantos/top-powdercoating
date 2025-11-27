@@ -88,24 +88,55 @@ export default function TeamOrderDetail() {
     }
   };
 
+  const getNextStatus = (currentStatus: string): { status: string; progress: number; isCompleted: boolean } => {
+    const statusFlow: Record<string, { next: string; progress: number }> = {
+      "pending_quote": { next: "queued", progress: 10 },
+      "queued": { next: "sand-blasting", progress: 25 },
+      "sand-blasting": { next: "coating", progress: 50 },
+      "coating": { next: "curing", progress: 70 },
+      "curing": { next: "quality-check", progress: 85 },
+      "quality-check": { next: "completed", progress: 100 },
+    };
+
+    const nextStep = statusFlow[currentStatus];
+    if (!nextStep) {
+      return { status: currentStatus, progress: 100, isCompleted: false };
+    }
+
+    return {
+      status: nextStep.next,
+      progress: nextStep.progress,
+      isCompleted: nextStep.next === "completed",
+    };
+  };
+
   const handleCompleteOrder = async () => {
     if (!order) return;
+
+    const { status: nextStatus, progress, isCompleted } = getNextStatus(order.status);
+
+    const updateData: any = {
+      status: nextStatus,
+      progress: progress,
+    };
+
+    if (isCompleted) {
+      updateData.completed_date = new Date().toISOString();
+    }
 
     try {
       const { error } = await supabase
         .from("orders")
-        .update({
-          status: "completed",
-          completed_date: new Date().toISOString(),
-          progress: 100,
-        })
+        .update(updateData)
         .eq("id", order.id);
 
       if (error) throw error;
 
       toast({
-        title: "Order Completed! 🎉",
-        description: `Order ${order.order_number} has been marked as completed`,
+        title: isCompleted ? "Order Completed! 🎉" : "Task Completed!",
+        description: isCompleted 
+          ? `Order ${order.order_number} has been marked as completed`
+          : `Order ${order.order_number} moved to ${nextStatus.replace("-", " ")}`,
       });
 
       navigate("/team/dashboard");

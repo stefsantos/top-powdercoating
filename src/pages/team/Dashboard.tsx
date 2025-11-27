@@ -118,22 +118,57 @@ export default function TeamDashboard() {
     }
   };
 
+  const getNextStatus = (currentStatus: string): { status: string; progress: number; isCompleted: boolean } => {
+    const statusFlow: Record<string, { next: string; progress: number }> = {
+      "pending_quote": { next: "queued", progress: 10 },
+      "queued": { next: "sand-blasting", progress: 25 },
+      "sand-blasting": { next: "coating", progress: 50 },
+      "coating": { next: "curing", progress: 70 },
+      "curing": { next: "quality-check", progress: 85 },
+      "quality-check": { next: "completed", progress: 100 },
+    };
+
+    const nextStep = statusFlow[currentStatus];
+    if (!nextStep) {
+      return { status: currentStatus, progress: 100, isCompleted: false };
+    }
+
+    return {
+      status: nextStep.next,
+      progress: nextStep.progress,
+      isCompleted: nextStep.next === "completed",
+    };
+  };
+
   const handleCompleteOrder = async (orderId: string, orderNumber: string) => {
     try {
+      // Find the current order to get its status
+      const currentOrder = assignedOrders.find(o => o.id === orderId);
+      if (!currentOrder) return;
+
+      const { status: nextStatus, progress, isCompleted } = getNextStatus(currentOrder.status);
+
+      const updateData: any = {
+        status: nextStatus,
+        progress: progress,
+      };
+
+      if (isCompleted) {
+        updateData.completed_date = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from("orders")
-        .update({
-          status: "completed",
-          completed_date: new Date().toISOString(),
-          progress: 100,
-        })
+        .update(updateData)
         .eq("id", orderId);
 
       if (error) throw error;
 
       toast({
-        title: "Order Completed! 🎉",
-        description: `Order ${orderNumber} has been marked as completed`,
+        title: isCompleted ? "Order Completed! 🎉" : "Task Completed!",
+        description: isCompleted 
+          ? `Order ${orderNumber} has been marked as completed`
+          : `Order ${orderNumber} moved to ${nextStatus.replace("-", " ")}`,
       });
 
       // Refresh the orders list
