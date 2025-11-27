@@ -37,7 +37,6 @@ export function Navigation({ isAdmin = false, isTeamMember = false, onLogout }: 
 
   const teamNav = [
     { label: 'Dashboard', path: '/team/dashboard', icon: BarChart },
-    { label: 'My Orders', path: '/team/orders', icon: Package },
   ];
 
   const navItems = isAdmin ? adminNav : isTeamMember ? teamNav : clientNav;

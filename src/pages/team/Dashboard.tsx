@@ -254,8 +254,8 @@ export default function TeamDashboard() {
             ) : (
               <div className="space-y-4">
                 {assignedOrders.map((order) => (
-                  <Card key={order.id} className="border-2">
-                    <CardContent className="pt-6">
+                  <Card key={order.id} className="border-2 cursor-pointer hover:border-primary transition-colors">
+                    <CardContent className="pt-6" onClick={() => window.location.href = `/admin/order/${order.id}`}>
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2">
@@ -280,7 +280,10 @@ export default function TeamDashboard() {
                           )}
                         </div>
                         <Button
-                          onClick={() => handleCompleteOrder(order.id, order.order_number)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCompleteOrder(order.id, order.order_number);
+                          }}
                           className="ml-4"
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
