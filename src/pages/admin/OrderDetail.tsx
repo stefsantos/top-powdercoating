@@ -294,24 +294,44 @@ export default function AdminOrderDetail() {
         updateData.quoted_price = parseFloat(quotedPrice);
       }
 
-      // Create negotiation record if quote price changed or is being set for first time
+      // Check if we need to create a negotiation record
       const newQuotePrice = quotedPrice ? parseFloat(quotedPrice) : null;
-      if (newQuotePrice && newQuotePrice !== previousQuotedPrice) {
-        const { error: negError } = await supabase
+      if (newQuotePrice) {
+        // Check if there are any existing negotiations for this order
+        const { data: existingNegotiations } = await supabase
           .from('quote_negotiations')
-          .insert({
-            order_id: id,
-            quoted_by: user.id,
-            quoted_price: newQuotePrice,
-            notes: previousQuotedPrice 
-              ? `Admin updated quote from ₱${previousQuotedPrice.toLocaleString()} to ₱${newQuotePrice.toLocaleString()}`
-              : 'Initial quote from admin',
-            status: 'pending',
-          });
+          .select('id')
+          .eq('order_id', id)
+          .limit(1);
 
-        if (negError) {
-          console.error('Failed to create negotiation record:', negError);
-          // Don't fail the whole save if negotiation record fails
+        // Create negotiation record if:
+        // 1. No negotiations exist yet (even if price hasn't changed)
+        // 2. Price has changed from previous value
+        const shouldCreateNegotiation = 
+          !existingNegotiations || 
+          existingNegotiations.length === 0 || 
+          newQuotePrice !== previousQuotedPrice;
+
+        if (shouldCreateNegotiation) {
+          const { error: negError } = await supabase
+            .from('quote_negotiations')
+            .insert({
+              order_id: id,
+              quoted_by: user.id,
+              quoted_price: newQuotePrice,
+              notes: previousQuotedPrice && newQuotePrice !== previousQuotedPrice
+                ? `Admin updated quote from ₱${previousQuotedPrice.toLocaleString()} to ₱${newQuotePrice.toLocaleString()}`
+                : 'Initial quote from admin',
+              status: 'pending',
+            });
+
+          if (negError) {
+            console.error('Failed to create negotiation record:', negError);
+            toast.error('Failed to save quote negotiation record');
+            // Don't continue if negotiation record fails
+            setSaving(false);
+            return;
+          }
         }
       }
 
