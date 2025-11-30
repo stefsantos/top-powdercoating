@@ -192,52 +192,74 @@ export default function Reports() {
       }
 
       if (selectedCategories.clientStatistics) {
-        // Get all clients (profiles with client role)
-        const { data: allClients } = await supabase
+        // Get all profiles to count total clients
+        const { data: allClients, error: allClientsError } = await supabase
           .from('profiles')
           .select('id, full_name');
 
-        // Get orders in date range with user info
+        if (allClientsError) {
+          console.error('Error fetching all clients:', allClientsError);
+        }
+
+        // Get orders in date range
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
-          .select('user_id, profiles!inner(full_name)')
+          .select('user_id, created_at')
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr);
 
+        if (ordersError) {
+          console.error('Error fetching orders for client stats:', ordersError);
+        }
+
         // Get new profiles created in date range
-        const { data: newProfiles } = await supabase
+        const { data: newProfiles, error: newProfilesError } = await supabase
           .from('profiles')
           .select('id')
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr);
 
-        if (!ordersError && orders && allClients) {
-          // Count orders per client
-          const clientCounts: Record<string, number> = {};
+        if (newProfilesError) {
+          console.error('Error fetching new profiles:', newProfilesError);
+        }
+
+        if (orders && allClients) {
+          // Count orders per client and track active clients
+          const userOrderCounts: Record<string, number> = {};
           const activeClientIds = new Set<string>();
           
-          orders.forEach((o: any) => {
-            const name = o.profiles?.full_name || 'Unknown';
-            const userId = o.user_id;
-            clientCounts[name] = (clientCounts[name] || 0) + 1;
+          orders.forEach((order) => {
+            const userId = order.user_id;
+            userOrderCounts[userId] = (userOrderCounts[userId] || 0) + 1;
             activeClientIds.add(userId);
           });
 
-          const sorted = Object.entries(clientCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 10);
+          // Get profile names for top clients
+          const topClientData = await Promise.all(
+            Object.entries(userOrderCounts)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 10)
+              .map(async ([userId, count]) => {
+                const profile = allClients.find(c => c.id === userId);
+                return [profile?.full_name || 'Unknown', count] as [string, number];
+              })
+          );
 
-          const activeCount = activeClientIds.size;
           const totalClients = allClients.length;
+          const activeCount = activeClientIds.size;
           const inactiveCount = totalClients - activeCount;
 
           data.clientStatistics = {
+            totalClients,
             activeClients: activeCount,
             inactiveClients: inactiveCount,
-            totalClients: totalClients,
-            topClients: sorted,
             newClients: newProfiles?.length || 0,
+            topClients: topClientData,
           };
+
+          console.log('Client Statistics:', data.clientStatistics);
+        } else {
+          console.log('No orders or clients data available');
         }
       }
 
