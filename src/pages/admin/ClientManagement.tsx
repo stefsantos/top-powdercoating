@@ -85,12 +85,36 @@ export default function ClientManagement() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch team members to exclude them from client list
+      const { data: teamMembers, error: teamError } = await supabase
+        .from('team_members')
+        .select('user_id');
+
+      if (teamError) throw teamError;
+
+      // Get all team member user IDs
+      const teamMemberIds = new Set((teamMembers || []).map(tm => tm.user_id).filter(Boolean));
+
       // Calculate 30 days ago for active status
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       // Map profiles to clients with order statistics
-      const clientsData: Client[] = (profiles || []).map(profile => {
+      // Filter out team members and admins - only include actual clients
+      const clientsData: Client[] = (profiles || [])
+        .filter(profile => {
+          // Exclude if user is a team member
+          if (teamMemberIds.has(profile.id)) return false;
+          
+          // Exclude if user is an admin
+          const isAdmin = (userRoles || []).some(
+            role => role.user_id === profile.id && role.role === 'admin'
+          );
+          if (isAdmin) return false;
+          
+          return true;
+        })
+        .map(profile => {
         const userOrders = (orders || []).filter(order => order.user_id === profile.id);
         
         // Count orders that are NOT completed or delayed (these are "active" in-progress orders)
@@ -112,28 +136,18 @@ export default function ClientManagement() {
         );
         const lastOrderDate = sortedOrders[0]?.submitted_date || null;
 
-        // Check if user is admin
-        const isAdmin = (userRoles || []).some(
-          role => role.user_id === profile.id && role.role === 'admin'
+        // Determine status: active (order in last 30 days) or inactive
+        const hasRecentOrder = userOrders.some(order => 
+          new Date(order.submitted_date) > thirtyDaysAgo
         );
-
-        // Determine status: admin > active (order in last 30 days) > inactive
-        let status: 'active' | 'inactive' | 'admin' = 'inactive';
-        if (isAdmin) {
-          status = 'admin';
-        } else {
-          const hasRecentOrder = userOrders.some(order => 
-            new Date(order.submitted_date) > thirtyDaysAgo
-          );
-          status = hasRecentOrder ? 'active' : 'inactive';
-        }
+        const status: 'active' | 'inactive' | 'admin' = hasRecentOrder ? 'active' : 'inactive';
 
         return {
           id: profile.id,
           name: profile.full_name || 'Unknown',
           company: profile.company,
           phone: profile.phone,
-          isAdmin,
+          isAdmin: false,
           joinDate: profile.created_at,
           totalOrders: userOrders.length,
           activeOrders,
