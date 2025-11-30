@@ -75,26 +75,26 @@ export default function TeamDashboard() {
 
       if (ordersError) throw ordersError;
 
-      // Map order status to required role
-      const getRequiredRoleForStatus = (status: string): string | null => {
-        const roleMapping: Record<string, string> = {
-          "sand-blasting": "Sand Blasting Tech",
-          "coating": "Coating Specialist",
-          "curing": "Curing Specialist",
-          "quality-check": "Quality Inspector",
+      // Map order status to required department
+      const getRequiredDepartmentForStatus = (status: string): string | null => {
+        const departmentMapping: Record<string, string> = {
+          "sand-blasting": "Sand Blasting",
+          "coating": "Coating",
+          "curing": "Curing",
+          "quality-check": "Quality Control",
         };
-        return roleMapping[status] || null;
+        return departmentMapping[status] || null;
       };
 
-      // Filter orders to only show those matching member's role
+      // Filter orders to only show those matching member's department
       const orders = ordersData
         .map((assignment: any) => assignment.orders)
         .filter((order: any) => {
           if (!order || order.status === "completed") return false;
           
-          const requiredRole = getRequiredRoleForStatus(order.status);
-          // Show if no specific role required (queued, pending_quote) or if role matches
-          return !requiredRole || requiredRole === memberData.role;
+          const requiredDepartment = getRequiredDepartmentForStatus(order.status);
+          // Show if no specific department required (queued, pending_quote) or if department matches
+          return !requiredDepartment || requiredDepartment === memberData.department;
         });
 
       setAssignedOrders(orders);
@@ -164,36 +164,36 @@ export default function TeamDashboard() {
       const currentOrder = assignedOrders.find(o => o.id === orderId);
       if (!currentOrder || !profile) return;
 
-      // Map status to required role
-      const getRequiredRoleForStatus = (status: string): string | null => {
-        const roleMapping: Record<string, string> = {
-          "sand-blasting": "Sand Blasting Tech",
-          "coating": "Coating Specialist",
-          "curing": "Curing Specialist",
-          "quality-check": "Quality Inspector",
+      // Map status to required department
+      const getRequiredDepartmentForStatus = (status: string): string | null => {
+        const departmentMapping: Record<string, string> = {
+          "sand-blasting": "Sand Blasting",
+          "coating": "Coating",
+          "curing": "Curing",
+          "quality-check": "Quality Control",
         };
-        return roleMapping[status] || null;
+        return departmentMapping[status] || null;
       };
 
-      // Find team member with matching role for next stage
+      // Find team member with matching department for next stage
       const findTeamMemberForStage = async (status: string): Promise<string | null> => {
-        const requiredRole = getRequiredRoleForStatus(status);
-        if (!requiredRole) return null;
+        const requiredDepartment = getRequiredDepartmentForStatus(status);
+        if (!requiredDepartment) return null;
 
         const { data, error } = await supabase
           .from("team_members")
           .select("id")
-          .eq("role", requiredRole)
+          .eq("department", requiredDepartment)
           .eq("availability", "available")
           .limit(1)
           .single();
 
         if (error || !data) {
-          // Fallback: try to find any member with this role
+          // Fallback: try to find any member with this department
           const { data: fallbackData } = await supabase
             .from("team_members")
             .select("id")
-            .eq("role", requiredRole)
+            .eq("department", requiredDepartment)
             .limit(1)
             .single();
           
@@ -204,11 +204,11 @@ export default function TeamDashboard() {
       };
 
       // Check authorization
-      const requiredRole = getRequiredRoleForStatus(currentOrder.status);
-      if (requiredRole && profile.role !== requiredRole) {
+      const requiredDepartment = getRequiredDepartmentForStatus(currentOrder.status);
+      if (requiredDepartment && profile.department !== requiredDepartment) {
         toast({
           title: "Unauthorized",
-          description: `Only ${requiredRole}s can complete this stage`,
+          description: `Only ${requiredDepartment} team members can complete this stage`,
           variant: "destructive",
         });
         return;

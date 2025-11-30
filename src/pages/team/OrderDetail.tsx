@@ -110,36 +110,36 @@ export default function TeamOrderDetail() {
     };
   };
 
-  // Map order status to required team member role
-  const getRequiredRoleForStatus = (status: string): string | null => {
-    const roleMapping: Record<string, string> = {
-      "sand-blasting": "Sand Blasting Tech",
-      "coating": "Coating Specialist",
-      "curing": "Curing Specialist",
-      "quality-check": "Quality Inspector",
+  // Map order status to required team member department
+  const getRequiredDepartmentForStatus = (status: string): string | null => {
+    const departmentMapping: Record<string, string> = {
+      "sand-blasting": "Sand Blasting",
+      "coating": "Coating",
+      "curing": "Curing",
+      "quality-check": "Quality Control",
     };
-    return roleMapping[status] || null;
+    return departmentMapping[status] || null;
   };
 
-  // Find team member with matching role for next stage
+  // Find team member with matching department for next stage
   const findTeamMemberForStage = async (status: string): Promise<string | null> => {
-    const requiredRole = getRequiredRoleForStatus(status);
-    if (!requiredRole) return null;
+    const requiredDepartment = getRequiredDepartmentForStatus(status);
+    if (!requiredDepartment) return null;
 
     const { data, error } = await supabase
       .from("team_members")
       .select("id")
-      .eq("role", requiredRole)
+      .eq("department", requiredDepartment)
       .eq("availability", "available")
       .limit(1)
       .single();
 
     if (error || !data) {
-      // Fallback: try to find any member with this role
+      // Fallback: try to find any member with this department
       const { data: fallbackData } = await supabase
         .from("team_members")
         .select("id")
-        .eq("role", requiredRole)
+        .eq("department", requiredDepartment)
         .limit(1)
         .single();
       
@@ -159,7 +159,7 @@ export default function TeamOrderDetail() {
 
       const { data: currentMember } = await supabase
         .from("team_members")
-        .select("id, role")
+        .select("id, role, department")
         .eq("user_id", user.id)
         .single();
 
@@ -172,12 +172,12 @@ export default function TeamOrderDetail() {
         return;
       }
 
-      // Check if current user's role matches the required role for current order status
-      const requiredRole = getRequiredRoleForStatus(order.status);
-      if (requiredRole && currentMember.role !== requiredRole) {
+      // Check if current user's department matches the required department for current order status
+      const requiredDepartment = getRequiredDepartmentForStatus(order.status);
+      if (requiredDepartment && currentMember.department !== requiredDepartment) {
         toast({
           title: "Unauthorized",
-          description: `Only ${requiredRole}s can complete this stage. Your role: ${currentMember.role}`,
+          description: `Only ${requiredDepartment} team members can complete this stage. Your department: ${currentMember.department}`,
           variant: "destructive",
         });
         return;

@@ -359,28 +359,28 @@ export default function AdminOrderDetail() {
 
       // Auto-assign team member based on new status if status changed
       if (status !== previousStatus) {
-        // Map status to required role
-        const getRequiredRoleForStatus = (orderStatus: string): string | null => {
-          const roleMapping: Record<string, string> = {
-            "sand-blasting": "Sand Blasting Tech",
-            "coating": "Coating Specialist",
-            "curing": "Curing Specialist",
-            "quality-check": "Quality Inspector",
+        // Map status to required department
+        const getRequiredDepartmentForStatus = (orderStatus: string): string | null => {
+          const departmentMapping: Record<string, string> = {
+            "sand-blasting": "Sand Blasting",
+            "coating": "Coating",
+            "curing": "Curing",
+            "quality-check": "Quality Control",
           };
-          return roleMapping[orderStatus] || null;
+          return departmentMapping[orderStatus] || null;
         };
 
-        const requiredRole = getRequiredRoleForStatus(status);
+        const requiredDepartment = getRequiredDepartmentForStatus(status);
         
         // Clear existing assignments
         await supabase.from("order_team_assignments").delete().eq("order_id", id);
 
-        // If status requires a specific role, auto-assign
-        if (requiredRole) {
+        // If status requires a specific department, auto-assign
+        if (requiredDepartment) {
           const { data: matchingMember } = await supabase
             .from("team_members")
             .select("id")
-            .eq("role", requiredRole)
+            .eq("department", requiredDepartment)
             .eq("availability", "available")
             .limit(1)
             .single();
@@ -393,11 +393,11 @@ export default function AdminOrderDetail() {
                 team_member_id: matchingMember.id,
               });
           } else {
-            // Fallback: assign any member with the required role
+            // Fallback: assign any member with the required department
             const { data: fallbackMember } = await supabase
               .from("team_members")
               .select("id")
-              .eq("role", requiredRole)
+              .eq("department", requiredDepartment)
               .limit(1)
               .single();
 
