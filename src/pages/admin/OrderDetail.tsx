@@ -332,6 +332,23 @@ export default function AdminOrderDetail() {
             setSaving(false);
             return;
           }
+
+          if (quotedPrice && quotedPrice !== previousQuotedPrice) {
+            // Create notification for client
+            const { error: notifError } = await supabase
+              .from("notifications")
+              .insert({
+                user_id: orderData.user_id,
+                title: "Quote Received",
+                message: `Your order ${orderData.order_number} has received a quote of $${quotedPrice}`,
+                type: "quote",
+                link: `/client/orders/${orderData.id}`,
+              });
+
+            if (notifError) {
+              console.error("Error creating notification:", notifError);
+            }
+          }
         }
       }
 
@@ -422,6 +439,17 @@ export default function AdminOrderDetail() {
         .from('orders')
         .update({ quoted_price: price })
         .eq('id', id);
+
+      // Notification for client 
+      await supabase
+        .from("notifications")
+        .insert({
+          user_id: orderData.user_id,
+          title: "Counter-Offer Received",
+          message: `Admin sent a counter-offer of ₱${price.toLocaleString()} for order ${orderData.order_number}`,
+          type: "quote",
+          link: `/client/orders/${orderData.id}`,
+      });
 
       toast.success('Counter-offer sent to client');
       setShowCounterOffer(false);
