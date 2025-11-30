@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { 
@@ -17,10 +19,22 @@ import {
   Building,
   Mail,
   Phone,
-  DollarSign
+  DollarSign,
+  Check,
+  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+
+interface QuoteNegotiation {
+  id: string;
+  quoted_by: string;
+  quoted_price: number;
+  notes: string | null;
+  status: string;
+  created_at: string;
+}
 
 interface OrderData {
   id: string;
@@ -35,6 +49,7 @@ interface OrderData {
   additional_notes: string | null;
   quoted_price: number | null;
   quote_approved: boolean | null;
+  user_id: string;
   customization?: {
     finish: string;
     texture: string;
@@ -60,6 +75,10 @@ export default function OrderDetail() {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
+  const [negotiations, setNegotiations] = useState<QuoteNegotiation[]>([]);
+  const [showCounterOffer, setShowCounterOffer] = useState(false);
+  const [counterPrice, setCounterPrice] = useState("");
+  const [counterNotes, setCounterNotes] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -111,13 +130,22 @@ export default function OrderDetail() {
         .eq('id', user.id)
         .single();
 
+      // Fetch negotiations
+      const { data: negotiationsData } = await supabase
+        .from('quote_negotiations')
+        .select('*')
+        .eq('order_id', id)
+        .order('created_at', { ascending: false });
+
       setOrderData({
         ...order,
         customization: customization || undefined,
         files: files || [],
         profile: profile || undefined,
-        user_email: user.email
+        user_email: user.email,
+        user_id: user.id
       });
+      setNegotiations(negotiationsData || []);
     } catch (error) {
       console.error('Error fetching order:', error);
       toast.error('Failed to load order details');
@@ -127,18 +155,35 @@ export default function OrderDetail() {
   };
 
   const handleApproveQuote = async () => {
-    if (!orderData) return;
+    if (!orderData || negotiations.length === 0) return;
     
     setApproving(true);
     try {
+      const latestNegotiation = negotiations[0];
+
+      // Insert acceptance record
+      const { error: negError } = await supabase
+        .from('quote_negotiations')
+        .insert({
+          order_id: id,
+          quoted_by: orderData.user_id,
+          quoted_price: latestNegotiation.quoted_price,
+          notes: 'Quote accepted by client',
+          status: 'accepted',
+        });
+
+      if (negError) throw negError;
+
+      // Update order
       const { error } = await supabase
         .from('orders')
         .update({
           quote_approved: true,
           quote_approved_at: new Date().toISOString(),
-          status: 'queued' as any // Move to queued after approval
+          status: 'queued' as any,
+          quoted_price: latestNegotiation.quoted_price,
         })
-        .eq('id', orderData.id);
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -149,6 +194,65 @@ export default function OrderDetail() {
       toast.error('Failed to approve quote');
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleDeclineQuote = async () => {
+    if (!orderData || negotiations.length === 0) return;
+    
+    try {
+      const latestNegotiation = negotiations[0];
+      
+      const { error } = await supabase
+        .from('quote_negotiations')
+        .insert({
+          order_id: id,
+          quoted_by: orderData.user_id,
+          quoted_price: latestNegotiation.quoted_price,
+          notes: 'Quote declined by client',
+          status: 'rejected',
+        });
+
+      if (error) throw error;
+
+      toast.success('Quote declined. The admin will be notified.');
+      fetchOrderDetails();
+    } catch (error) {
+      console.error('Error declining quote:', error);
+      toast.error('Failed to decline quote');
+    }
+  };
+
+  const handleSubmitCounterOffer = async () => {
+    if (!orderData || !counterPrice) return;
+    
+    const price = parseFloat(counterPrice);
+    if (isNaN(price) || price <= 0) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('quote_negotiations')
+        .insert({
+          order_id: id,
+          quoted_by: orderData.user_id,
+          quoted_price: price,
+          notes: counterNotes || 'Counter-offer from client',
+          status: 'countered',
+        });
+
+      if (error) throw error;
+
+      toast.success('Counter-offer submitted successfully');
+      setShowCounterOffer(false);
+      setCounterPrice('');
+      setCounterNotes('');
+      fetchOrderDetails();
+    } catch (error) {
+      console.error('Error submitting counter-offer:', error);
+      toast.error('Failed to submit counter-offer');
     }
   };
 
@@ -198,7 +302,7 @@ export default function OrderDetail() {
     );
   }
 
-  const showQuoteApproval = orderData.status === 'pending_quote' && orderData.quoted_price && !orderData.quote_approved;
+  const showQuoteNegotiation = orderData.status === 'pending_quote' && !orderData.quote_approved && negotiations.length > 0;
 
   return (
     <div className="min-h-screen bg-background pt-28">
@@ -224,40 +328,132 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-6">
-          {/* Quote Approval Card - Show prominently if quote is ready */}
-          {showQuoteApproval && (
+          {/* Quote Negotiation Card */}
+          {showQuoteNegotiation && (
             <Card className="border-yellow-500 border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-yellow-600">
                   <DollarSign className="h-5 w-5" />
-                  Quote Ready for Approval
+                  Quote Negotiation
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Quoted Price</p>
-                    <p className="text-3xl font-bold text-foreground">
-                      ₱{Number(orderData.quoted_price).toLocaleString()}
+                {/* Negotiation History */}
+                <div className="space-y-3 mb-4">
+                  <h4 className="text-sm font-semibold">Negotiation History</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {negotiations.map((neg) => (
+                      <div
+                        key={neg.id}
+                        className={`p-3 rounded-lg border ${
+                          neg.quoted_by === orderData.user_id
+                            ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800'
+                            : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-800'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-sm font-medium">
+                            {neg.quoted_by === orderData.user_id ? 'You' : 'Admin'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(neg.created_at), 'MMM d, yyyy h:mm a')}
+                          </span>
+                        </div>
+                        <p className="text-lg font-bold text-primary">
+                          ₱{parseFloat(neg.quoted_price.toString()).toLocaleString()}
+                        </p>
+                        {neg.notes && (
+                          <p className="text-sm text-muted-foreground mt-1">{neg.notes}</p>
+                        )}
+                        <span
+                          className={`text-xs px-2 py-1 rounded inline-block mt-2 ${
+                            neg.status === 'accepted'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                              : neg.status === 'rejected'
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                              : neg.status === 'countered'
+                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                          }`}
+                        >
+                          {neg.status.charAt(0).toUpperCase() + neg.status.slice(1)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Current Quote */}
+                {negotiations.length > 0 && negotiations[0].quoted_by !== orderData.user_id && (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Current Quote from Admin</p>
+                    <p className="text-3xl font-bold text-primary">
+                      ₱{parseFloat(negotiations[0].quoted_price.toString()).toLocaleString()}
                     </p>
                   </div>
-                  <Button 
-                    size="lg" 
-                    onClick={handleApproveQuote}
-                    disabled={approving}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {approving ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Approve Quote
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  By approving this quote, you confirm the price and authorize us to begin production on your order.
-                </p>
+                )}
+
+                {/* Counter Offer Form */}
+                {showCounterOffer ? (
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <h4 className="font-semibold">Submit Counter-Offer</h4>
+                    <div>
+                      <label className="text-sm font-medium">Your Preferred Price (₱)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Enter price"
+                        value={counterPrice}
+                        onChange={(e) => setCounterPrice(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Notes (Optional)</label>
+                      <Textarea
+                        placeholder="Add any notes or explanation"
+                        value={counterNotes}
+                        onChange={(e) => setCounterNotes(e.target.value)}
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSubmitCounterOffer} className="flex-1">
+                        Submit Counter-Offer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowCounterOffer(false);
+                          setCounterPrice('');
+                          setCounterNotes('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Button onClick={handleApproveQuote} disabled={approving} className="w-full" variant="default">
+                      {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      Approve
+                    </Button>
+                    <Button onClick={handleDeclineQuote} className="w-full" variant="destructive">
+                      <X className="mr-2 h-4 w-4" />
+                      Decline
+                    </Button>
+                    <Button
+                      onClick={() => setShowCounterOffer(true)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <DollarSign className="mr-2 h-4 w-4" />
+                      Counter-Offer
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
