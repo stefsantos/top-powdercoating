@@ -252,10 +252,10 @@ export default function Reports() {
       if (selectedCategories.delayedOrders) {
         const { data: delayedOrders, error } = await supabase
           .from('orders')
-          .select('order_number, project_name, description, submitted_date, estimated_completion, priority, profiles(full_name)')
+          .select('order_number, project_name, description, submitted_date, estimated_completion, priority, user_id, profiles!inner(full_name)')
           .eq('status', 'delayed')
-          .gte('created_at', startDateStr)
-          .lte('created_at', endDateStr)
+          .gte('submitted_date', startDateStr)
+          .lte('submitted_date', endDateStr)
           .order('submitted_date', { ascending: false });
 
         if (!error && delayedOrders) {
