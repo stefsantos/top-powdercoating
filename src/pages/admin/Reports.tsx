@@ -293,46 +293,44 @@ export default function Reports() {
     }
   };
 
-  const generatePDF = () => {
-    if (!reportData || !startDate || !endDate) return;
-
-    const doc = new jsPDF();
-    let yPos = 20;
-
-    // Header
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TOP Powder Coating Reports', 105, yPos, { align: 'center' });
-    
-    yPos += 10;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Report Period: ${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`, 105, yPos, { align: 'center' });
-    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 105, yPos + 5, { align: 'center' });
-    
-    yPos += 20;
-
-    // Order Volume
-    if (reportData.orderVolume) {
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Order Volume & Status', 14, yPos);
-      yPos += 10;
-
-      const statusData = Object.entries(reportData.orderVolume.statusCounts).map(([status, count]) => [
-        status.replace(/-/g, ' ').toUpperCase(),
-        count
-      ]);
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Status', 'Count']],
-        body: statusData,
-        theme: 'grid',
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+  if (reportData.delayedOrders && reportData.delayedOrders.count > 0) {
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
     }
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Delayed Orders (Total: ${reportData.delayedOrders.count})`, 14, yPos);
+    yPos += 10;
+
+    const delayedData = reportData.delayedOrders.orders.map((order: any) => [
+      order.orderNumber,
+      order.projectName,
+      order.clientName,
+      order.priority.charAt(0).toUpperCase() + order.priority.slice(1),
+      order.submittedDate,
+      order.estimatedCompletion,
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Order #', 'Project', 'Client', 'Priority', 'Submitted', 'Est. Completion']],
+      body: delayedData,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 30 },
+      },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+  }
 
     // Production Pipeline
     if (reportData.productionPipeline) {
@@ -609,11 +607,12 @@ export default function Reports() {
       csv += '\n';
     }
 
-    if (reportData.delayedOrders) {
-      csv += `Delayed Orders (${reportData.delayedOrders.count})\n`;
+    if (reportData.delayedOrders && reportData.delayedOrders.count > 0) {
+      csv += `Delayed Orders (Total: ${reportData.delayedOrders.count})\n`;
       csv += 'Order Number,Project Name,Client,Priority,Submitted Date,Est. Completion,Description\n';
       reportData.delayedOrders.orders.forEach((order: any) => {
-        csv += `${order.orderNumber},${order.projectName},${order.clientName},${order.priority},${order.submittedDate},${order.estimatedCompletion},"${order.description}"\n`;
+        const description = order.description ? order.description.replace(/"/g, '""') : '';
+        csv += `${order.orderNumber},"${order.projectName}",${order.clientName},${order.priority},${order.submittedDate},${order.estimatedCompletion},"${description}"\n`;
       });
     }
 
@@ -895,8 +894,25 @@ export default function Reports() {
               {reportData.clientStatistics && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Client Statistics</h3>
-                  <p className="text-sm text-muted-foreground">Active Clients: {reportData.clientStatistics.activeClients}</p>
-                  <p className="text-sm text-muted-foreground">New Clients: {reportData.clientStatistics.newClients}</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Active Clients: {reportData.clientStatistics.activeClients} | New Clients: {reportData.clientStatistics.newClients}
+                  </p>
+                  {reportData.clientStatistics.topClients && reportData.clientStatistics.topClients.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Top Clients by Order Count:</p>
+                      {reportData.clientStatistics.topClients.slice(0, 5).map(([name, count]: [string, number], idx: number) => (
+                        <div key={idx} className="flex justify-between items-center p-2 border border-border rounded bg-card">
+                          <span className="text-sm">{name}</span>
+                          <span className="text-sm font-medium">{count} orders</span>
+                        </div>
+                      ))}
+                      {reportData.clientStatistics.topClients.length > 5 && (
+                        <p className="text-xs text-muted-foreground text-center py-1">
+                          + {reportData.clientStatistics.topClients.length - 5} more clients (see full report)
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -911,27 +927,41 @@ export default function Reports() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Delayed Orders</h3>
                   <p className="text-sm text-muted-foreground mb-3">Total Delayed: {reportData.delayedOrders.count}</p>
-                  {reportData.delayedOrders.count > 0 && (
+                  {reportData.delayedOrders.count > 0 ? (
                     <div className="space-y-2">
                       {reportData.delayedOrders.orders.slice(0, 5).map((order: any, idx: number) => (
                         <div key={idx} className="p-3 border border-border rounded-md bg-card">
                           <div className="flex justify-between items-start mb-1">
                             <p className="font-medium text-sm">{order.orderNumber}</p>
-                            <span className="text-xs px-2 py-1 rounded bg-destructive/10 text-destructive">
+                            <span className={cn(
+                              "text-xs px-2 py-1 rounded",
+                              order.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                              order.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                              order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                              'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            )}>
                               {order.priority.toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground">{order.projectName}</p>
-                          <p className="text-xs text-muted-foreground">Client: {order.clientName}</p>
-                          <p className="text-xs text-muted-foreground">Est. Completion: {order.estimatedCompletion}</p>
+                          <p className="text-sm font-medium mb-1">{order.projectName}</p>
+                          <p className="text-xs text-muted-foreground mb-1">Client: {order.clientName}</p>
+                          {order.description && (
+                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{order.description}</p>
+                          )}
+                          <div className="flex justify-between mt-2 pt-2 border-t border-border">
+                            <p className="text-xs text-muted-foreground">Submitted: {order.submittedDate}</p>
+                            <p className="text-xs text-muted-foreground">Due: {order.estimatedCompletion}</p>
+                          </div>
                         </div>
                       ))}
                       {reportData.delayedOrders.count > 5 && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground text-center py-2">
                           + {reportData.delayedOrders.count - 5} more delayed orders (see full report)
                         </p>
                       )}
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No delayed orders in this period</p>
                   )}
                 </div>
               )}
