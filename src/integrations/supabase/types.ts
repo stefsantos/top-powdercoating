@@ -292,6 +292,44 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_negotiations: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          order_id: string
+          quoted_by: string
+          quoted_price: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          quoted_by: string
+          quoted_price: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          quoted_by?: string
+          quoted_price?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_negotiations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           availability: string | null
