@@ -184,20 +184,17 @@ export default function ClientManagement() {
       .slice(0, 2);
   };
 
-  // Filter out admins from display list but keep them in stats
-  const displayClients = clients.filter(client => !client.isAdmin);
-
-  const filteredClients = displayClients.filter(client =>
+  const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (client.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const stats = {
-    total: displayClients.length,
+    total: clients.length,
     active: clients.filter(c => c.status === 'active').length,
     inactive: clients.filter(c => c.status === 'inactive').length,
-    admins: clients.filter(c => c.status === 'admin').length,
-    totalRevenue: displayClients.reduce((sum, c) => sum + c.totalValue, 0)
+    admins: 0, // Admins are already filtered out
+    totalRevenue: clients.reduce((sum, c) => sum + c.totalValue, 0)
   };
 
   if (loading) {
@@ -315,7 +312,7 @@ export default function ClientManagement() {
           <CardContent>
             {filteredClients.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                {displayClients.length === 0 
+                {clients.length === 0 
                   ? 'No clients found. Clients will appear here when they sign up.'
                   : 'No clients match your search.'}
               </div>
