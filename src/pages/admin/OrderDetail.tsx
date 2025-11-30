@@ -333,20 +333,20 @@ export default function AdminOrderDetail() {
             return;
           }
 
-          if (quotedPrice && quotedPrice !== previousQuotedPrice) {
-            // Create notification for client
-            const { error: notifError } = await supabase
-              .from("notifications")
+          if (newQuotePrice && newQuotePrice !== previousQuotedPrice) {
+            // Create message for client
+            const { error: messageError } = await supabase
+              .from("messages")
               .insert({
                 user_id: orderData.user_id,
-                title: "Quote Received",
-                message: `Your order ${orderData.order_number} has received a quote of $${quotedPrice}`,
-                type: "quote",
-                link: `/client/orders/${orderData.id}`,
+                subject: "Quote Received",
+                message: `Your order ${orderData.order_number} has received a quote of ₱${newQuotePrice.toLocaleString()}`,
+                priority: "high",
+                order_id: id,
               });
 
-            if (notifError) {
-              console.error("Error creating notification:", notifError);
+            if (messageError) {
+              console.error("Error creating message:", messageError);
             }
           }
         }
@@ -499,15 +499,15 @@ export default function AdminOrderDetail() {
         .update({ quoted_price: price })
         .eq('id', id);
 
-      // Notification for client 
+      // Message for client 
       await supabase
-        .from("notifications")
+        .from("messages")
         .insert({
           user_id: orderData.user_id,
-          title: "Counter-Offer Received",
+          subject: "Counter-Offer Received",
           message: `Admin sent a counter-offer of ₱${price.toLocaleString()} for order ${orderData.order_number}`,
-          type: "quote",
-          link: `/client/orders/${orderData.id}`,
+          priority: "high",
+          order_id: id,
       });
 
       toast.success('Counter-offer sent to client');

@@ -132,29 +132,38 @@ export default function Reports() {
           .from('order_team_assignments')
           .select('team_member_id, team_members(name, department, status)');
 
-        const { data: teamMembers } = await supabase
+        const { data: allTeamMembers } = await supabase
           .from('team_members')
-          .select('status');
+          .select('id, name, status, availability');
 
-        if (!error && assignments && teamMembers) {
-          const memberCounts: Record<string, number> = {};
-          const deptCounts: Record<string, number> = {};
-
+        if (!error && assignments && allTeamMembers) {
+          // Count assignments per team member
+          const memberAssignmentCounts: Record<string, number> = {};
           assignments.forEach((a: any) => {
-            const name = a.team_members?.name || 'Unknown';
-            const dept = a.team_members?.department || 'Unknown';
-            memberCounts[name] = (memberCounts[name] || 0) + 1;
-            deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+            const memberId = a.team_member_id;
+            memberAssignmentCounts[memberId] = (memberAssignmentCounts[memberId] || 0) + 1;
           });
 
-          const active = teamMembers.filter(m => m.status === 'active').length;
-          const inactive = teamMembers.length - active;
+          // Build member list with assignment counts
+          const allMembersWithCounts = allTeamMembers.map(tm => ({
+            name: tm.name,
+            status: tm.status || 'unknown',
+            availability: tm.availability || 'unknown',
+            assignedOrders: memberAssignmentCounts[tm.id] || 0,
+          }));
+
+          // Status counts
+          const statusCounts = {
+            active: allTeamMembers.filter(m => m.status === 'active').length,
+            busy: allTeamMembers.filter(m => m.availability === 'busy').length,
+            available: allTeamMembers.filter(m => m.availability === 'available').length,
+            onLeave: allTeamMembers.filter(m => m.status === 'on_leave' || m.availability === 'on_leave').length,
+          };
 
           data.teamAssignments = {
-            memberCounts,
-            deptCounts,
-            activeMembers: active,
-            inactiveMembers: inactive,
+            allMembers: allMembersWithCounts,
+            statusCounts,
+            totalMembers: allTeamMembers.length,
           };
         }
       }
@@ -305,7 +314,7 @@ export default function Reports() {
       yPos = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Production Pipeline
+    // Stage Distribution
     if (reportData.productionPipeline) {
       if (yPos > 250) {
         doc.addPage();
@@ -314,17 +323,18 @@ export default function Reports() {
 
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('Production Pipeline', 14, yPos);
+      doc.text('Stage Distribution', 14, yPos);
       yPos += 10;
+
+      const stageData = Object.entries(reportData.productionPipeline.currentPipeline).map(([stage, count]) => [
+        stage.replace('-', ' ').replace('_', ' ').toUpperCase(),
+        count
+      ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Metric', 'Value']],
-        body: [
-          ['Total Completed', reportData.productionPipeline.completed],
-          ['Total Delayed', reportData.productionPipeline.delayed],
-          ['In Progress', reportData.productionPipeline.inProgress],
-        ],
+        head: [['Stage', 'Count']],
+        body: stageData,
         theme: 'grid',
       });
 
@@ -343,11 +353,29 @@ export default function Reports() {
       doc.text('Team Assignments', 14, yPos);
       yPos += 10;
 
-      const memberData = Object.entries(reportData.teamAssignments.memberCounts).map(([name, count]) => [name, count]);
+      // Status summary
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Status Summary: Active: ${reportData.teamAssignments.statusCounts.active}, ` +
+        `On Leave: ${reportData.teamAssignments.statusCounts.onLeave}, ` +
+        `Busy: ${reportData.teamAssignments.statusCounts.busy}, ` +
+        `Available: ${reportData.teamAssignments.statusCounts.available}`,
+        14,
+        yPos
+      );
+      yPos += 7;
+
+      const memberData = reportData.teamAssignments.allMembers.map((m: any) => [
+        m.name,
+        m.status.toUpperCase(),
+        m.availability.toUpperCase(),
+        m.assignedOrders
+      ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Team Member', 'Orders']],
+        head: [['Team Member', 'Status', 'Availability', 'Assigned Orders']],
         body: memberData,
         theme: 'grid',
       });
@@ -366,6 +394,11 @@ export default function Reports() {
       doc.setFont('helvetica', 'bold');
       doc.text('Priority Breakdown', 14, yPos);
       yPos += 10;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Urgent Ratio: ${reportData.priorityBreakdown.urgentRatio}%`, 14, yPos);
+      yPos += 7;
 
       const priorityData = Object.entries(reportData.priorityBreakdown.priorityCounts).map(([priority, count]) => [
         priority.toUpperCase(),
@@ -416,15 +449,21 @@ export default function Reports() {
       doc.text('Order Specifications', 14, yPos);
       yPos += 10;
 
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total Items Processed: ${reportData.orderSpecifications.totalQuantity}`, 14, yPos);
+      yPos += 7;
+
       const finishData = Object.entries(reportData.orderSpecifications.finishCounts).map(([finish, count]) => [
         finish.toUpperCase(),
         count
       ]);
+      const finishTotal = finishData.reduce((sum, [, count]) => sum + (count as number), 0);
 
       autoTable(doc, {
         startY: yPos,
         head: [['Finish Type', 'Count']],
-        body: finishData,
+        body: [...finishData, ['TOTAL', finishTotal]],
         theme: 'grid',
       });
 
@@ -434,20 +473,23 @@ export default function Reports() {
         texture.toUpperCase(),
         count
       ]);
+      const textureTotal = textureData.reduce((sum, [, count]) => sum + (count as number), 0);
 
       autoTable(doc, {
         startY: yPos,
         head: [['Texture Type', 'Count']],
-        body: textureData,
+        body: [...textureData, ['TOTAL', textureTotal]],
         theme: 'grid',
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 5;
 
+      const colorTotal = reportData.orderSpecifications.topColors.reduce((sum: number, [, count]: [string, number]) => sum + count, 0);
+
       autoTable(doc, {
         startY: yPos,
         head: [['Top Colors', 'Count']],
-        body: reportData.orderSpecifications.topColors,
+        body: [...reportData.orderSpecifications.topColors, ['TOTAL (Top 5)', colorTotal]],
         theme: 'grid',
       });
     }
@@ -485,24 +527,27 @@ export default function Reports() {
     }
 
     if (reportData.productionPipeline) {
-      csv += 'Production Pipeline\n';
-      csv += 'Metric,Value\n';
-      csv += `Total Completed,${reportData.productionPipeline.completed}\n`;
-      csv += `Total Delayed,${reportData.productionPipeline.delayed}\n`;
-      csv += `In Progress,${reportData.productionPipeline.inProgress}\n\n`;
+      csv += 'Stage Distribution\n';
+      csv += 'Stage,Count\n';
+      Object.entries(reportData.productionPipeline.currentPipeline).forEach(([stage, count]) => {
+        csv += `${stage},${count}\n`;
+      });
+      csv += '\n';
     }
 
     if (reportData.teamAssignments) {
       csv += 'Team Assignments\n';
-      csv += 'Team Member,Orders\n';
-      Object.entries(reportData.teamAssignments.memberCounts).forEach(([name, count]) => {
-        csv += `${name},${count}\n`;
+      csv += `Status Summary: Active: ${reportData.teamAssignments.statusCounts.active}, On Leave: ${reportData.teamAssignments.statusCounts.onLeave}, Busy: ${reportData.teamAssignments.statusCounts.busy}, Available: ${reportData.teamAssignments.statusCounts.available}\n`;
+      csv += 'Team Member,Status,Availability,Assigned Orders\n';
+      reportData.teamAssignments.allMembers.forEach((m: any) => {
+        csv += `${m.name},${m.status},${m.availability},${m.assignedOrders}\n`;
       });
       csv += '\n';
     }
 
     if (reportData.priorityBreakdown) {
       csv += 'Priority Breakdown\n';
+      csv += `Urgent Ratio: ${reportData.priorityBreakdown.urgentRatio}%\n`;
       csv += 'Priority,Count\n';
       Object.entries(reportData.priorityBreakdown.priorityCounts).forEach(([priority, count]) => {
         csv += `${priority},${count}\n`;
@@ -680,7 +725,7 @@ export default function Reports() {
                     onCheckedChange={() => toggleCategory('productionPipeline')}
                   />
                   <Label htmlFor="productionPipeline" className="cursor-pointer">
-                    Production Pipeline
+                    Stage Distribution
                   </Label>
                 </div>
 
@@ -779,30 +824,76 @@ export default function Reports() {
               {reportData.orderVolume && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Order Volume & Status</h3>
-                  <p className="text-sm text-muted-foreground">Total Orders: {reportData.orderVolume.total}</p>
-                  <p className="text-sm text-muted-foreground">Completed: {reportData.orderVolume.completed}</p>
+                  <p className="text-sm font-medium mb-2">Total Orders: {reportData.orderVolume.total}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(reportData.orderVolume.statusCounts).map(([status, count]) => (
+                      <div key={status} className="flex justify-between p-2 border border-border rounded text-sm">
+                        <span className="capitalize">{status.replace('-', ' ').replace('_', ' ')}</span>
+                        <span className="font-medium">{count as number}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {reportData.productionPipeline && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Production Pipeline</h3>
-                  <p className="text-sm text-muted-foreground">In Progress: {reportData.productionPipeline.inProgress}</p>
-                  <p className="text-sm text-muted-foreground">Delayed: {reportData.productionPipeline.delayed}</p>
+                  <h3 className="text-lg font-semibold mb-2">Stage Distribution</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                    {Object.entries(reportData.productionPipeline.currentPipeline).map(([stage, count]) => (
+                      <div key={stage} className="flex justify-between p-2 border border-border rounded">
+                        <span className="capitalize">{stage.replace('-', ' ').replace('_', ' ')}</span>
+                        <span className="font-medium">{count as number}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {reportData.teamAssignments && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Team Assignments</h3>
-                  <p className="text-sm text-muted-foreground">Active Members: {reportData.teamAssignments.activeMembers}</p>
+                  <div className="mb-3 p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-2">Status Summary:</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>Active: <span className="font-semibold">{reportData.teamAssignments.statusCounts.active}</span></div>
+                      <div>On Leave: <span className="font-semibold">{reportData.teamAssignments.statusCounts.onLeave}</span></div>
+                      <div>Busy: <span className="font-semibold">{reportData.teamAssignments.statusCounts.busy}</span></div>
+                      <div>Available: <span className="font-semibold">{reportData.teamAssignments.statusCounts.available}</span></div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">Total Members: {reportData.teamAssignments.totalMembers}</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {reportData.teamAssignments.allMembers.slice(0, 5).map((member: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center p-2 border border-border rounded text-sm">
+                        <div className="flex-1">
+                          <div className="font-medium">{member.name}</div>
+                          <div className="text-xs text-muted-foreground">{member.status} • {member.availability}</div>
+                        </div>
+                        <span className="font-medium">{member.assignedOrders} orders</span>
+                      </div>
+                    ))}
+                    {reportData.teamAssignments.allMembers.length > 5 && (
+                      <p className="text-xs text-muted-foreground text-center py-1">
+                        + {reportData.teamAssignments.allMembers.length - 5} more members (see full report)
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
               {reportData.priorityBreakdown && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Priority Breakdown</h3>
-                  <p className="text-sm text-muted-foreground">Urgent Ratio: {reportData.priorityBreakdown.urgentRatio}%</p>
+                  <p className="text-sm font-medium mb-2">Urgent Ratio: {reportData.priorityBreakdown.urgentRatio}%</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(reportData.priorityBreakdown.priorityCounts).map(([priority, count]) => (
+                      <div key={priority} className="flex justify-between p-2 border border-border rounded text-sm">
+                        <span className="capitalize">{priority}</span>
+                        <span className="font-medium">{count as number}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -834,7 +925,45 @@ export default function Reports() {
               {reportData.orderSpecifications && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Order Specifications</h3>
-                  <p className="text-sm text-muted-foreground">Total Items: {reportData.orderSpecifications.totalQuantity}</p>
+                  <p className="text-sm font-medium mb-3">Total Items Processed: {reportData.orderSpecifications.totalQuantity}</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Finish Types:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(reportData.orderSpecifications.finishCounts).map(([finish, count]) => (
+                          <div key={finish} className="flex justify-between p-2 border border-border rounded text-sm">
+                            <span className="capitalize">{finish}</span>
+                            <span className="font-medium">{count as number}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Texture Types:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(reportData.orderSpecifications.textureCounts).map(([texture, count]) => (
+                          <div key={texture} className="flex justify-between p-2 border border-border rounded text-sm">
+                            <span className="capitalize">{texture}</span>
+                            <span className="font-medium">{count as number}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Top 5 Colors:</p>
+                      <div className="space-y-2">
+                        {reportData.orderSpecifications.topColors.map(([color, count]: [string, number], idx: number) => (
+                          <div key={idx} className="flex justify-between p-2 border border-border rounded text-sm">
+                            <span>{color}</span>
+                            <span className="font-medium">{count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
