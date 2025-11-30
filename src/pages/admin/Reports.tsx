@@ -187,16 +187,13 @@ export default function Reports() {
           .from('orders')
           .select('user_id, profiles!inner(full_name)')
           .gte('created_at', startDateStr)
-          .lt('created_at', format(new Date(endDate.getTime() + 86400000), 'yyyy-MM-dd')); // Add 1 day to include full end date
+          .lte('created_at', endDateStr);
 
         const { data: newProfiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id')
           .gte('created_at', startDateStr)
-          .lt('created_at', format(new Date(endDate.getTime() + 86400000), 'yyyy-MM-dd'));
-
-        console.log('Client Stats - Orders fetched:', orders?.length, 'Error:', ordersError);
-        console.log('Client Stats - New profiles:', newProfiles?.length, 'Error:', profilesError);
+          .lte('created_at', endDateStr);
 
         if (!ordersError && orders) {
           const clientCounts: Record<string, number> = {};
@@ -214,15 +211,6 @@ export default function Reports() {
             topClients: sorted,
             newClients: newProfiles?.length || 0,
           };
-          
-          console.log('Client Statistics:', data.clientStatistics);
-        } else if (ordersError) {
-          console.error('Error fetching client statistics:', ordersError);
-          toast({
-            title: 'Error',
-            description: 'Failed to fetch client statistics',
-            variant: 'destructive',
-          });
         }
       }
 
