@@ -183,19 +183,22 @@ export default function Reports() {
       }
 
       if (selectedCategories.clientStatistics) {
-        const { data: orders, error } = await supabase
+        const { data: orders, error: ordersError } = await supabase
           .from('orders')
           .select('user_id, profiles!inner(full_name)')
           .gte('created_at', startDateStr)
-          .lte('created_at', endDateStr);
+          .lt('created_at', format(new Date(endDate.getTime() + 86400000), 'yyyy-MM-dd')); // Add 1 day to include full end date
 
-        const { data: newProfiles } = await supabase
+        const { data: newProfiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id')
           .gte('created_at', startDateStr)
-          .lte('created_at', endDateStr);
+          .lt('created_at', format(new Date(endDate.getTime() + 86400000), 'yyyy-MM-dd'));
 
-        if (!error && orders) {
+        console.log('Client Stats - Orders fetched:', orders?.length, 'Error:', ordersError);
+        console.log('Client Stats - New profiles:', newProfiles?.length, 'Error:', profilesError);
+
+        if (!ordersError && orders) {
           const clientCounts: Record<string, number> = {};
           orders.forEach((o: any) => {
             const name = o.profiles?.full_name || 'Unknown';
@@ -213,8 +216,13 @@ export default function Reports() {
           };
           
           console.log('Client Statistics:', data.clientStatistics);
-        } else if (error) {
-          console.error('Error fetching client statistics:', error);
+        } else if (ordersError) {
+          console.error('Error fetching client statistics:', ordersError);
+          toast({
+            title: 'Error',
+            description: 'Failed to fetch client statistics',
+            variant: 'destructive',
+          });
         }
       }
 
