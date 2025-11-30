@@ -75,9 +75,27 @@ export default function TeamDashboard() {
 
       if (ordersError) throw ordersError;
 
+      // Map order status to required role
+      const getRequiredRoleForStatus = (status: string): string | null => {
+        const roleMapping: Record<string, string> = {
+          "sand-blasting": "Sand Blasting Tech",
+          "coating": "Coating Specialist",
+          "curing": "Curing Specialist",
+          "quality-check": "Quality Inspector",
+        };
+        return roleMapping[status] || null;
+      };
+
+      // Filter orders to only show those matching member's role
       const orders = ordersData
         .map((assignment: any) => assignment.orders)
-        .filter((order: any) => order && order.status !== "completed");
+        .filter((order: any) => {
+          if (!order || order.status === "completed") return false;
+          
+          const requiredRole = getRequiredRoleForStatus(order.status);
+          // Show if no specific role required (queued, pending_quote) or if role matches
+          return !requiredRole || requiredRole === memberData.role;
+        });
 
       setAssignedOrders(orders);
     } catch (error) {
@@ -144,7 +162,57 @@ export default function TeamDashboard() {
     try {
       // Find the current order to get its status
       const currentOrder = assignedOrders.find(o => o.id === orderId);
-      if (!currentOrder) return;
+      if (!currentOrder || !profile) return;
+
+      // Map status to required role
+      const getRequiredRoleForStatus = (status: string): string | null => {
+        const roleMapping: Record<string, string> = {
+          "sand-blasting": "Sand Blasting Tech",
+          "coating": "Coating Specialist",
+          "curing": "Curing Specialist",
+          "quality-check": "Quality Inspector",
+        };
+        return roleMapping[status] || null;
+      };
+
+      // Find team member with matching role for next stage
+      const findTeamMemberForStage = async (status: string): Promise<string | null> => {
+        const requiredRole = getRequiredRoleForStatus(status);
+        if (!requiredRole) return null;
+
+        const { data, error } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("role", requiredRole)
+          .eq("availability", "available")
+          .limit(1)
+          .single();
+
+        if (error || !data) {
+          // Fallback: try to find any member with this role
+          const { data: fallbackData } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("role", requiredRole)
+            .limit(1)
+            .single();
+          
+          return fallbackData?.id || null;
+        }
+
+        return data.id;
+      };
+
+      // Check authorization
+      const requiredRole = getRequiredRoleForStatus(currentOrder.status);
+      if (requiredRole && profile.role !== requiredRole) {
+        toast({
+          title: "Unauthorized",
+          description: `Only ${requiredRole}s can complete this stage`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       const { status: nextStatus, progress, isCompleted } = getNextStatus(currentOrder.status);
 
@@ -157,6 +225,7 @@ export default function TeamDashboard() {
         updateData.completed_date = new Date().toISOString();
       }
 
+      // Update order
       const { error } = await supabase
         .from("orders")
         .update(updateData)
@@ -164,11 +233,39 @@ export default function TeamDashboard() {
 
       if (error) throw error;
 
+      // Handle team assignments
+      if (!isCompleted) {
+        const nextMemberId = await findTeamMemberForStage(nextStatus);
+        
+        if (nextMemberId) {
+          // Remove current assignment
+          await supabase
+            .from("order_team_assignments")
+            .delete()
+            .eq("order_id", orderId)
+            .eq("team_member_id", profile.id);
+
+          // Add new assignment for next stage
+          await supabase
+            .from("order_team_assignments")
+            .insert({
+              order_id: orderId,
+              team_member_id: nextMemberId,
+            });
+        }
+      } else {
+        // Order completed, remove all assignments
+        await supabase
+          .from("order_team_assignments")
+          .delete()
+          .eq("order_id", orderId);
+      }
+
       toast({
         title: isCompleted ? "Order Completed! 🎉" : "Task Completed!",
         description: isCompleted 
           ? `Order ${orderNumber} has been marked as completed`
-          : `Order ${orderNumber} moved to ${nextStatus.replace("-", " ")}`,
+          : `Order ${orderNumber} moved to ${nextStatus.replace("-", " ")} and reassigned`,
       });
 
       // Refresh the orders list

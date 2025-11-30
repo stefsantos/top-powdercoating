@@ -357,20 +357,79 @@ export default function AdminOrderDetail() {
 
       if (orderError) throw orderError;
 
-      // Update team assignments
-      const { error: deleteError } = await supabase.from("order_team_assignments").delete().eq("order_id", id);
+      // Auto-assign team member based on new status if status changed
+      if (status !== previousStatus) {
+        // Map status to required role
+        const getRequiredRoleForStatus = (orderStatus: string): string | null => {
+          const roleMapping: Record<string, string> = {
+            "sand-blasting": "Sand Blasting Tech",
+            "coating": "Coating Specialist",
+            "curing": "Curing Specialist",
+            "quality-check": "Quality Inspector",
+          };
+          return roleMapping[orderStatus] || null;
+        };
 
-      if (deleteError) throw deleteError;
+        const requiredRole = getRequiredRoleForStatus(status);
+        
+        // Clear existing assignments
+        await supabase.from("order_team_assignments").delete().eq("order_id", id);
 
-      if (assignedTeamMembers.length > 0) {
-        const assignments = assignedTeamMembers.map((memberId) => ({
-          order_id: id!,
-          team_member_id: memberId,
-        }));
+        // If status requires a specific role, auto-assign
+        if (requiredRole) {
+          const { data: matchingMember } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("role", requiredRole)
+            .eq("availability", "available")
+            .limit(1)
+            .single();
 
-        const { error: insertError } = await supabase.from("order_team_assignments").insert(assignments);
+          if (matchingMember) {
+            await supabase
+              .from("order_team_assignments")
+              .insert({
+                order_id: id!,
+                team_member_id: matchingMember.id,
+              });
+          } else {
+            // Fallback: assign any member with the required role
+            const { data: fallbackMember } = await supabase
+              .from("team_members")
+              .select("id")
+              .eq("role", requiredRole)
+              .limit(1)
+              .single();
 
-        if (insertError) throw insertError;
+            if (fallbackMember) {
+              await supabase
+                .from("order_team_assignments")
+                .insert({
+                  order_id: id!,
+                  team_member_id: fallbackMember.id,
+                });
+            }
+          }
+        } else if (assignedTeamMembers.length > 0) {
+          // If no specific role required and admin manually selected members
+          const assignments = assignedTeamMembers.map((memberId) => ({
+            order_id: id!,
+            team_member_id: memberId,
+          }));
+          await supabase.from("order_team_assignments").insert(assignments);
+        }
+      } else {
+        // Status didn't change, use admin's manual assignment
+        if (assignedTeamMembers.length > 0) {
+          // Clear existing first
+          await supabase.from("order_team_assignments").delete().eq("order_id", id);
+          
+          const assignments = assignedTeamMembers.map((memberId) => ({
+            order_id: id!,
+            team_member_id: memberId,
+          }));
+          await supabase.from("order_team_assignments").insert(assignments);
+        }
       }
 
       // Send email notification if status changed
