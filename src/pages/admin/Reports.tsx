@@ -192,31 +192,49 @@ export default function Reports() {
       }
 
       if (selectedCategories.clientStatistics) {
+        // Get all clients (profiles with client role)
+        const { data: allClients } = await supabase
+          .from('profiles')
+          .select('id, full_name');
+
+        // Get orders in date range with user info
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
           .select('user_id, profiles!inner(full_name)')
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr);
 
-        const { data: newProfiles, error: profilesError } = await supabase
+        // Get new profiles created in date range
+        const { data: newProfiles } = await supabase
           .from('profiles')
           .select('id')
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr);
 
-        if (!ordersError && orders) {
+        if (!ordersError && orders && allClients) {
+          // Count orders per client
           const clientCounts: Record<string, number> = {};
+          const activeClientIds = new Set<string>();
+          
           orders.forEach((o: any) => {
             const name = o.profiles?.full_name || 'Unknown';
+            const userId = o.user_id;
             clientCounts[name] = (clientCounts[name] || 0) + 1;
+            activeClientIds.add(userId);
           });
 
           const sorted = Object.entries(clientCounts)
             .sort(([, a], [, b]) => b - a)
             .slice(0, 10);
 
+          const activeCount = activeClientIds.size;
+          const totalClients = allClients.length;
+          const inactiveCount = totalClients - activeCount;
+
           data.clientStatistics = {
-            activeClients: Object.keys(clientCounts).length,
+            activeClients: activeCount,
+            inactiveClients: inactiveCount,
+            totalClients: totalClients,
             topClients: sorted,
             newClients: newProfiles?.length || 0,
           };
@@ -427,9 +445,21 @@ export default function Reports() {
       doc.text('Client Statistics', 14, yPos);
       yPos += 10;
 
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Total Clients: ${reportData.clientStatistics.totalClients} | ` +
+        `Active: ${reportData.clientStatistics.activeClients} | ` +
+        `Inactive: ${reportData.clientStatistics.inactiveClients} | ` +
+        `New: ${reportData.clientStatistics.newClients}`,
+        14,
+        yPos
+      );
+      yPos += 7;
+
       autoTable(doc, {
         startY: yPos,
-        head: [['Client', 'Orders']],
+        head: [['Top Clients (by Orders)', 'Order Count']],
         body: reportData.clientStatistics.topClients,
         theme: 'grid',
       });
@@ -557,7 +587,11 @@ export default function Reports() {
 
     if (reportData.clientStatistics) {
       csv += 'Client Statistics\n';
-      csv += 'Client,Orders\n';
+      csv += `Total Clients: ${reportData.clientStatistics.totalClients}\n`;
+      csv += `Active Clients: ${reportData.clientStatistics.activeClients}\n`;
+      csv += `Inactive Clients: ${reportData.clientStatistics.inactiveClients}\n`;
+      csv += `New Clients: ${reportData.clientStatistics.newClients}\n\n`;
+      csv += 'Top Clients (by Orders),Order Count\n';
       reportData.clientStatistics.topClients.forEach(([name, count]: [string, number]) => {
         csv += `${name},${count}\n`;
       });
@@ -900,9 +934,24 @@ export default function Reports() {
               {reportData.clientStatistics && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Client Statistics</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Active Clients: {reportData.clientStatistics.activeClients} | New Clients: {reportData.clientStatistics.newClients}
-                  </p>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">Total Clients</p>
+                      <p className="text-2xl font-bold">{reportData.clientStatistics.totalClients}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">Active Clients</p>
+                      <p className="text-2xl font-bold text-green-600">{reportData.clientStatistics.activeClients}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">Inactive Clients</p>
+                      <p className="text-2xl font-bold text-orange-600">{reportData.clientStatistics.inactiveClients}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">New Clients</p>
+                      <p className="text-2xl font-bold text-blue-600">{reportData.clientStatistics.newClients}</p>
+                    </div>
+                  </div>
                   {reportData.clientStatistics.topClients && reportData.clientStatistics.topClients.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Top Clients by Order Count:</p>
