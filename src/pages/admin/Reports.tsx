@@ -21,7 +21,6 @@ interface ReportData {
   priorityBreakdown?: any;
   clientStatistics?: any;
   orderSpecifications?: any;
-  delayedOrders?: any;
 }
 
 export default function Reports() {
@@ -34,7 +33,6 @@ export default function Reports() {
     priorityBreakdown: false,
     clientStatistics: false,
     orderSpecifications: false,
-    delayedOrders: false,
   });
   const [exportFormat, setExportFormat] = useState<'pdf' | 'csv' | 'both'>('pdf');
   const [loading, setLoading] = useState(false);
@@ -249,33 +247,6 @@ export default function Reports() {
         }
       }
 
-      if (selectedCategories.delayedOrders) {
-        const { data: delayedOrders, error } = await supabase
-          .from('orders')
-          .select('order_number, project_name, description, submitted_date, estimated_completion, priority, user_id, profiles!inner(full_name)')
-          .eq('status', 'delayed')
-          .gte('submitted_date', startDateStr)
-          .lte('submitted_date', endDateStr)
-          .order('submitted_date', { ascending: false });
-
-        if (!error && delayedOrders) {
-          data.delayedOrders = {
-            count: delayedOrders.length,
-            orders: delayedOrders.map((order: any) => ({
-              orderNumber: order.order_number,
-              projectName: order.project_name,
-              description: order.description,
-              clientName: order.profiles?.full_name || 'Unknown',
-              submittedDate: format(new Date(order.submitted_date), 'MMM dd, yyyy'),
-              estimatedCompletion: order.estimated_completion 
-                ? format(new Date(order.estimated_completion), 'MMM dd, yyyy')
-                : 'Not set',
-              priority: order.priority,
-            })),
-          };
-        }
-      }
-
       setReportData(data);
       toast({
         title: 'Report Generated',
@@ -293,44 +264,46 @@ export default function Reports() {
     }
   };
 
-  if (reportData.delayedOrders && reportData.delayedOrders.count > 0) {
-    if (yPos > 200) {
-      doc.addPage();
-      yPos = 20;
-    }
+  const generatePDF = () => {
+    if (!reportData || !startDate || !endDate) return;
 
-    doc.setFontSize(14);
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Delayed Orders (Total: ${reportData.delayedOrders.count})`, 14, yPos);
+    doc.text('TOP Powder Coating Reports', 105, yPos, { align: 'center' });
     yPos += 10;
 
-    const delayedData = reportData.delayedOrders.orders.map((order: any) => [
-      order.orderNumber,
-      order.projectName,
-      order.clientName,
-      order.priority.charAt(0).toUpperCase() + order.priority.slice(1),
-      order.submittedDate,
-      order.estimatedCompletion,
-    ]);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Report Period: ${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`, 105, yPos, { align: 'center' });
+    yPos += 5;
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 105, yPos, { align: 'center' });
+    yPos += 15;
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Order #', 'Project', 'Client', 'Priority', 'Submitted', 'Est. Completion']],
-      body: delayedData,
-      theme: 'grid',
-      styles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 28 },
-        5: { cellWidth: 30 },
-      },
-    });
+    // Order Volume
+    if (reportData.orderVolume) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Order Volume & Status', 14, yPos);
+      yPos += 10;
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-  }
+      const statusData = Object.entries(reportData.orderVolume.statusCounts).map(([status, count]) => [
+        status.replace('-', ' ').replace('_', ' ').toUpperCase(),
+        count
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Status', 'Count']],
+        body: statusData,
+        theme: 'grid',
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+    }
 
     // Production Pipeline
     if (reportData.productionPipeline) {
@@ -479,44 +452,6 @@ export default function Reports() {
       });
     }
 
-    // Delayed Orders
-    if (reportData.delayedOrders) {
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Delayed Orders (${reportData.delayedOrders.count})`, 14, yPos);
-      yPos += 10;
-
-      const delayedData = reportData.delayedOrders.orders.map((order: any) => [
-        order.orderNumber,
-        order.projectName,
-        order.clientName,
-        order.priority.toUpperCase(),
-        order.submittedDate,
-        order.estimatedCompletion,
-      ]);
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Order #', 'Project', 'Client', 'Priority', 'Submitted', 'Est. Completion']],
-        body: delayedData,
-        theme: 'grid',
-        styles: { fontSize: 8 },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 30 },
-        },
-      });
-    }
-
     // Footer
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -605,15 +540,6 @@ export default function Reports() {
         csv += `${color},${count}\n`;
       });
       csv += '\n';
-    }
-
-    if (reportData.delayedOrders && reportData.delayedOrders.count > 0) {
-      csv += `Delayed Orders (Total: ${reportData.delayedOrders.count})\n`;
-      csv += 'Order Number,Project Name,Client,Priority,Submitted Date,Est. Completion,Description\n';
-      reportData.delayedOrders.orders.forEach((order: any) => {
-        const description = order.description ? order.description.replace(/"/g, '""') : '';
-        csv += `${order.orderNumber},"${order.projectName}",${order.clientName},${order.priority},${order.submittedDate},${order.estimatedCompletion},"${description}"\n`;
-      });
     }
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -801,17 +727,6 @@ export default function Reports() {
                     Order Specifications
                   </Label>
                 </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="delayedOrders"
-                    checked={selectedCategories.delayedOrders}
-                    onCheckedChange={() => toggleCategory('delayedOrders')}
-                  />
-                  <Label htmlFor="delayedOrders" className="cursor-pointer">
-                    Delayed Orders
-                  </Label>
-                </div>
               </div>
             </div>
 
@@ -920,49 +835,6 @@ export default function Reports() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Order Specifications</h3>
                   <p className="text-sm text-muted-foreground">Total Items: {reportData.orderSpecifications.totalQuantity}</p>
-                </div>
-              )}
-
-              {reportData.delayedOrders && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Delayed Orders</h3>
-                  <p className="text-sm text-muted-foreground mb-3">Total Delayed: {reportData.delayedOrders.count}</p>
-                  {reportData.delayedOrders.count > 0 ? (
-                    <div className="space-y-2">
-                      {reportData.delayedOrders.orders.slice(0, 5).map((order: any, idx: number) => (
-                        <div key={idx} className="p-3 border border-border rounded-md bg-card">
-                          <div className="flex justify-between items-start mb-1">
-                            <p className="font-medium text-sm">{order.orderNumber}</p>
-                            <span className={cn(
-                              "text-xs px-2 py-1 rounded",
-                              order.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                              order.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                              order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                              'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            )}>
-                              {order.priority.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium mb-1">{order.projectName}</p>
-                          <p className="text-xs text-muted-foreground mb-1">Client: {order.clientName}</p>
-                          {order.description && (
-                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{order.description}</p>
-                          )}
-                          <div className="flex justify-between mt-2 pt-2 border-t border-border">
-                            <p className="text-xs text-muted-foreground">Submitted: {order.submittedDate}</p>
-                            <p className="text-xs text-muted-foreground">Due: {order.estimatedCompletion}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {reportData.delayedOrders.count > 5 && (
-                        <p className="text-xs text-muted-foreground text-center py-2">
-                          + {reportData.delayedOrders.count - 5} more delayed orders (see full report)
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">No delayed orders in this period</p>
-                  )}
                 </div>
               )}
 
