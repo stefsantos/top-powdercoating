@@ -185,7 +185,7 @@ export default function Reports() {
       if (selectedCategories.clientStatistics) {
         const { data: orders, error } = await supabase
           .from('orders')
-          .select('user_id, profiles(full_name)')
+          .select('user_id, profiles!inner(full_name)')
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr);
 
@@ -211,6 +211,10 @@ export default function Reports() {
             topClients: sorted,
             newClients: newProfiles?.length || 0,
           };
+          
+          console.log('Client Statistics:', data.clientStatistics);
+        } else if (error) {
+          console.error('Error fetching client statistics:', error);
         }
       }
 
