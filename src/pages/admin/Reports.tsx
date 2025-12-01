@@ -192,27 +192,49 @@ export default function Reports() {
       }
 
       if (selectedCategories.clientStatistics) {
-        // Get all client users (exclude admins and team members)
-        const { data: clientRoles, error: clientRolesError } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'client');
-
-        if (clientRolesError) {
-          console.error('Error fetching client roles:', clientRolesError);
-        }
-
-        const clientIds = clientRoles?.map(r => r.user_id) || [];
-
-        // Get profiles for actual clients only
-        const { data: allClients, error: allClientsError } = await supabase
+        // Get all profiles
+        const { data: allProfiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, full_name')
-          .in('id', clientIds.length > 0 ? clientIds : ['']);
+          .select('id, full_name');
 
-        if (allClientsError) {
-          console.error('Error fetching all clients:', allClientsError);
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
         }
+
+        // Get user roles to identify admins
+        const { data: userRoles, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role');
+
+        if (rolesError) {
+          console.error('Error fetching user roles:', rolesError);
+        }
+
+        // Get team members to exclude them
+        const { data: teamMembers, error: teamError } = await supabase
+          .from('team_members')
+          .select('user_id');
+
+        if (teamError) {
+          console.error('Error fetching team members:', teamError);
+        }
+
+        // Filter to only actual clients (exclude admins and team members)
+        const teamMemberIds = new Set((teamMembers || []).map(tm => tm.user_id).filter(Boolean));
+        const allClients = (allProfiles || []).filter(profile => {
+          // Exclude team members
+          if (teamMemberIds.has(profile.id)) return false;
+          
+          // Exclude admins
+          const isAdmin = (userRoles || []).some(
+            role => role.user_id === profile.id && role.role === 'admin'
+          );
+          if (isAdmin) return false;
+          
+          return true;
+        });
+
+        const clientIds = allClients.map(c => c.id);
 
         // Get orders in date range
         const { data: orders, error: ordersError } = await supabase
@@ -225,17 +247,13 @@ export default function Reports() {
           console.error('Error fetching orders for client stats:', ordersError);
         }
 
-        // Get new client profiles created in date range
-        const { data: newClientRoles, error: newClientRolesError } = await supabase
-          .from('user_roles')
-          .select('user_id, profiles!inner(created_at)')
-          .eq('role', 'client')
-          .gte('profiles.created_at', startDateStr)
-          .lte('profiles.created_at', endDateStr);
-
-        if (newClientRolesError) {
-          console.error('Error fetching new client profiles:', newClientRolesError);
-        }
+        // Count new clients created in date range
+        const newClientsCount = allClients.filter(client => {
+          const createdAt = allProfiles?.find(p => p.id === client.id);
+          if (!createdAt) return false;
+          const created = new Date((createdAt as any).created_at || '');
+          return created >= new Date(startDateStr) && created <= new Date(endDateStr);
+        }).length;
 
         if (orders && allClients) {
           // Count orders per client and track active clients
@@ -270,7 +288,7 @@ export default function Reports() {
             totalClients,
             activeClients: activeCount,
             inactiveClients: inactiveCount,
-            newClients: newClientRoles?.length || 0,
+            newClients: newClientsCount,
             topClients: topClientData,
           };
 
