@@ -192,10 +192,23 @@ export default function Reports() {
       }
 
       if (selectedCategories.clientStatistics) {
-        // Get all profiles to count total clients
+        // Get all client users (exclude admins and team members)
+        const { data: clientRoles, error: clientRolesError } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'client');
+
+        if (clientRolesError) {
+          console.error('Error fetching client roles:', clientRolesError);
+        }
+
+        const clientIds = clientRoles?.map(r => r.user_id) || [];
+
+        // Get profiles for actual clients only
         const { data: allClients, error: allClientsError } = await supabase
           .from('profiles')
-          .select('id, full_name');
+          .select('id, full_name')
+          .in('id', clientIds.length > 0 ? clientIds : ['']);
 
         if (allClientsError) {
           console.error('Error fetching all clients:', allClientsError);
@@ -212,15 +225,16 @@ export default function Reports() {
           console.error('Error fetching orders for client stats:', ordersError);
         }
 
-        // Get new profiles created in date range
-        const { data: newProfiles, error: newProfilesError } = await supabase
-          .from('profiles')
-          .select('id')
-          .gte('created_at', startDateStr)
-          .lte('created_at', endDateStr);
+        // Get new client profiles created in date range
+        const { data: newClientRoles, error: newClientRolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, profiles!inner(created_at)')
+          .eq('role', 'client')
+          .gte('profiles.created_at', startDateStr)
+          .lte('profiles.created_at', endDateStr);
 
-        if (newProfilesError) {
-          console.error('Error fetching new profiles:', newProfilesError);
+        if (newClientRolesError) {
+          console.error('Error fetching new client profiles:', newClientRolesError);
         }
 
         if (orders && allClients) {
@@ -230,8 +244,11 @@ export default function Reports() {
           
           orders.forEach((order) => {
             const userId = order.user_id;
-            userOrderCounts[userId] = (userOrderCounts[userId] || 0) + 1;
-            activeClientIds.add(userId);
+            // Only count if user is a client
+            if (clientIds.includes(userId)) {
+              userOrderCounts[userId] = (userOrderCounts[userId] || 0) + 1;
+              activeClientIds.add(userId);
+            }
           });
 
           // Get profile names for top clients
@@ -253,7 +270,7 @@ export default function Reports() {
             totalClients,
             activeClients: activeCount,
             inactiveClients: inactiveCount,
-            newClients: newProfiles?.length || 0,
+            newClients: newClientRoles?.length || 0,
             topClients: topClientData,
           };
 
